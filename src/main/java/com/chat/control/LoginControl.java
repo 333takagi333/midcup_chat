@@ -4,12 +4,22 @@ import com.chat.model.LoginRequest;
 import com.chat.model.Request;
 import com.chat.network.SocketClient;
 import com.chat.ui.CustomButton;
+import com.chat.ui.InfoDialog;
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import javafx.concurrent.Task;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
+import javafx.stage.Stage;
+import javafx.stage.Modality;
+
+import java.io.IOException;
 
 public class LoginControl {
 
@@ -65,15 +75,80 @@ public class LoginControl {
             String response = task.getValue();
             if (response != null) {
                 System.out.println("Server response: " + response);
+                JsonObject jsonResponse = JsonParser.parseString(response).getAsJsonObject();
+                String status = jsonResponse.get("status").getAsString();
+
+                if ("SUCCESS".equals(status)) {
+                    try {
+                        FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/chat/fxml/main.fxml"));
+                        Parent mainRoot = loader.load();
+
+                        com.chat.control.MainController mainController = loader.getController();
+                        mainController.setUsername(username);
+
+                        Stage stage = (Stage) loginButton.getScene().getWindow();
+                        stage.setTitle("Chat");
+                        stage.setScene(new Scene(mainRoot));
+                    } catch (IOException ioException) {
+                        ioException.printStackTrace();
+                    }
+                } else {
+                    try {
+                        FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/chat/fxml/components/InfoDialog.fxml"));
+                        Parent dialogRoot = loader.load();
+                        InfoDialog controller = loader.getController();
+                        controller.setMessage("登录失败，用户或密码错误，请重试");
+                        Stage owner = (Stage) loginButton.getScene().getWindow();
+                        Stage dialogStage = new Stage();
+                        controller.setDialogStage(dialogStage);
+                        dialogStage.initOwner(owner);
+                        dialogStage.initModality(Modality.APPLICATION_MODAL);
+                        dialogStage.setTitle("提示");
+                        dialogStage.setScene(new Scene(dialogRoot));
+                        dialogStage.showAndWait();
+                    } catch (IOException ioException) {
+                        ioException.printStackTrace();
+                    }
+                }
             } else {
-                System.out.println("No response or request failed.");
+                // response == null，视为连接失败
+                try {
+                    FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/chat/fxml/components/InfoDialog.fxml"));
+                    Parent dialogRoot = loader.load();
+                    InfoDialog controller = loader.getController();
+                    controller.setMessage("服务器连接失败，请稍后重试");
+                    Stage owner = (Stage) loginButton.getScene().getWindow();
+                    Stage dialogStage = new Stage();
+                    controller.setDialogStage(dialogStage);
+                    dialogStage.initOwner(owner);
+                    dialogStage.initModality(Modality.APPLICATION_MODAL);
+                    dialogStage.setTitle("提示");
+                    dialogStage.setScene(new Scene(dialogRoot));
+                    dialogStage.showAndWait();
+                } catch (IOException ioException) {
+                    ioException.printStackTrace();
+                }
             }
         });
 
         task.setOnFailed(e -> {
             loginButton.setDisable(false);
-            Throwable ex = task.getException();
-            System.err.println("Request failed: " + (ex != null ? ex.getMessage() : "unknown error"));
+            try {
+                FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/chat/fxml/components/InfoDialog.fxml"));
+                Parent dialogRoot = loader.load();
+                InfoDialog controller = loader.getController();
+                controller.setMessage("服务器连接失败，请稍后重试");
+                Stage owner = (Stage) loginButton.getScene().getWindow();
+                Stage dialogStage = new Stage();
+                controller.setDialogStage(dialogStage);
+                dialogStage.initOwner(owner);
+                dialogStage.initModality(Modality.APPLICATION_MODAL);
+                dialogStage.setTitle("提示");
+                dialogStage.setScene(new Scene(dialogRoot));
+                dialogStage.showAndWait();
+            } catch (IOException ioException) {
+                ioException.printStackTrace();
+            }
         });
 
         new Thread(task, "login-request-thread").start();
