@@ -21,6 +21,9 @@ import javafx.stage.Modality;
 
 import java.io.IOException;
 
+/**
+ * 登录界面的控制器，负责处理用户登录和跳转到主界面，以及错误提示。
+ */
 public class LoginControl {
 
     @FXML
@@ -35,20 +38,23 @@ public class LoginControl {
     @FXML
     private CustomButton registerButton;
 
+    /**
+     * 处理登录按钮点击事件：
+     * - 校验输入
+     * - 发送登录请求
+     * - 根据服务端返回的结果进行界面跳转或错误提示
+     */
     @FXML
     void login(ActionEvent event) {
         String username = usernameField.getText();
         String password = passwordField.getText();
 
         if (username.isEmpty() || password.isEmpty()) {
-            System.out.println("Username or password cannot be empty.");
-            // 可以在这里弹出一个InfoDialog提示用户
+            showInfo("请输入用户名和密码");
             return;
         }
 
         String encryptedPassword = PasswordEncryptor.encrypt(password);
-        System.out.println("Login attempt with username: " + username + " and encrypted password: " + encryptedPassword);
-
         // 封装登录请求数据
         LoginRequest loginRequestData = new LoginRequest(username, encryptedPassword);
         // 封装通用请求
@@ -74,7 +80,6 @@ public class LoginControl {
             loginButton.setDisable(false);
             String response = task.getValue();
             if (response != null) {
-                System.out.println("Server response: " + response);
                 JsonObject jsonResponse = JsonParser.parseString(response).getAsJsonObject();
                 String status = jsonResponse.get("status").getAsString();
 
@@ -90,73 +95,54 @@ public class LoginControl {
                         stage.setTitle("Chat");
                         stage.setScene(new Scene(mainRoot));
                     } catch (IOException ioException) {
-                        ioException.printStackTrace();
+                        System.err.println("无法加载主界面: " + ioException.getMessage());
                     }
                 } else {
-                    try {
-                        FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/chat/fxml/components/InfoDialog.fxml"));
-                        Parent dialogRoot = loader.load();
-                        InfoDialog controller = loader.getController();
-                        controller.setMessage("登录失败，用户或密码错误，请重试");
-                        Stage owner = (Stage) loginButton.getScene().getWindow();
-                        Stage dialogStage = new Stage();
-                        controller.setDialogStage(dialogStage);
-                        dialogStage.initOwner(owner);
-                        dialogStage.initModality(Modality.APPLICATION_MODAL);
-                        dialogStage.setTitle("提示");
-                        dialogStage.setScene(new Scene(dialogRoot));
-                        dialogStage.showAndWait();
-                    } catch (IOException ioException) {
-                        ioException.printStackTrace();
-                    }
+                    showInfo("登录失败，用户或密码错误，请重试");
                 }
             } else {
                 // response == null，视为连接失败
-                try {
-                    FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/chat/fxml/components/InfoDialog.fxml"));
-                    Parent dialogRoot = loader.load();
-                    InfoDialog controller = loader.getController();
-                    controller.setMessage("服务器连接失败，请稍后重试");
-                    Stage owner = (Stage) loginButton.getScene().getWindow();
-                    Stage dialogStage = new Stage();
-                    controller.setDialogStage(dialogStage);
-                    dialogStage.initOwner(owner);
-                    dialogStage.initModality(Modality.APPLICATION_MODAL);
-                    dialogStage.setTitle("提示");
-                    dialogStage.setScene(new Scene(dialogRoot));
-                    dialogStage.showAndWait();
-                } catch (IOException ioException) {
-                    ioException.printStackTrace();
-                }
+                showInfo("服务器连接失败，请稍后重试");
             }
         });
 
         task.setOnFailed(e -> {
             loginButton.setDisable(false);
-            try {
-                FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/chat/fxml/components/InfoDialog.fxml"));
-                Parent dialogRoot = loader.load();
-                InfoDialog controller = loader.getController();
-                controller.setMessage("服务器连接失败，请稍后重试");
-                Stage owner = (Stage) loginButton.getScene().getWindow();
-                Stage dialogStage = new Stage();
-                controller.setDialogStage(dialogStage);
-                dialogStage.initOwner(owner);
-                dialogStage.initModality(Modality.APPLICATION_MODAL);
-                dialogStage.setTitle("提示");
-                dialogStage.setScene(new Scene(dialogRoot));
-                dialogStage.showAndWait();
-            } catch (IOException ioException) {
-                ioException.printStackTrace();
-            }
+            showInfo("服务器连接失败，请稍后重试");
         });
 
         new Thread(task, "login-request-thread").start();
     }
 
+    /**
+     * 处理注册按钮点击事件（占位）。
+     */
     @FXML
     void register(ActionEvent event) {
-        System.out.println("Register button clicked");
-        // 在这里添加注册逻辑
+        // 预留：注册逻辑
+    }
+
+    /**
+     * 以模态对话框的方式展示提示信息。
+     *
+     * @param message 提示消息文本
+     */
+    private void showInfo(String message) {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/chat/fxml/components/InfoDialog.fxml"));
+            Parent dialogRoot = loader.load();
+            InfoDialog controller = loader.getController();
+            controller.setMessage(message);
+            Stage owner = (Stage) loginButton.getScene().getWindow();
+            Stage dialogStage = new Stage();
+            controller.setDialogStage(dialogStage);
+            dialogStage.initOwner(owner);
+            dialogStage.initModality(Modality.APPLICATION_MODAL);
+            dialogStage.setTitle("提示");
+            dialogStage.setScene(new Scene(dialogRoot));
+            dialogStage.showAndWait();
+        } catch (IOException ioException) {
+            System.err.println("无法显示提示对话框: " + ioException.getMessage());
+        }
     }
 }

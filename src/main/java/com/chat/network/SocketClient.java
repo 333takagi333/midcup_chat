@@ -9,13 +9,16 @@ import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 
+/**
+ * 简单的基于 TCP 的客户端，用于向服务器发送登录请求并获取响应。
+ */
 public class SocketClient {
     private static final String SERVER_ADDRESS = "localhost";
     private static final int SERVER_PORT = 12345;
     private static final int TIMEOUT_MS = 5000; // 5 seconds
 
     /**
-     * 发送登录请求并等待服务端响应
+     * 发送登录请求并等待服务端响应。
      * @param jsonRequest JSON 字符串
      * @return 服务端返回的首行响应；如果超时或失败返回 null
      */
@@ -28,18 +31,15 @@ public class SocketClient {
 
                 // 发送请求
                 out.println(jsonRequest);
-                System.out.println("Sent to server: " + jsonRequest);
 
                 // 读取响应（按行协议）
-                String response = in.readLine();
-                System.out.println("Received from server: " + response);
-                return response;
+                return in.readLine();
             }
         } catch (SocketTimeoutException e) {
-            System.err.println("Server response timed out after " + TIMEOUT_MS + " ms");
+            // 超时返回 null，调用方统一处理
             return null;
         } catch (IOException e) {
-            System.err.println("Couldn't connect or communicate with server: " + e.getMessage());
+            // 连接或通讯失败，返回 null，调用方统一处理
             return null;
         }
     }
