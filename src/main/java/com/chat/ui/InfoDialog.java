@@ -2,8 +2,14 @@ package com.chat.ui;
 
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.Label;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
+
+import java.io.IOException;
 
 /**
  * 简单的信息提示对话框控制器，用于展示一段消息并允许用户关闭。
@@ -40,4 +46,5 @@ public class InfoDialog {
             dialogStage.close();
         }
     }
+
 }

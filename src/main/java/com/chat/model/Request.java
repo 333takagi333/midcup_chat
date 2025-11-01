@@ -1,48 +1,40 @@
 package com.chat.model;
 
-/**
- * 通用请求模型。
- * 封装请求的类型以及对应的负载数据。
- */
-public class Request {
-    private String type;
-    private Object payload;
+import java.io.Serializable;
 
-    /**
-     * 构造一个请求对象。
-     * @param type 请求类型，例如 "LOGIN"
-     * @param payload 请求数据载荷
-     */
-    public Request(String type, Object payload) {
+public class Request implements Serializable {
+    private String type;
+    private Object data;
+    private long timestamp;
+
+    public Request(String type, Object data) {
         this.type = type;
-        this.payload = payload;
+        this.data = data;
+        this.timestamp = System.currentTimeMillis();
     }
 
-    /**
-     * 获取请求类型。
-     */
+    // Getters and setters
     public String getType() {
         return type;
     }
 
-    /**
-     * 设置请求类型。
-     */
     public void setType(String type) {
         this.type = type;
     }
 
-    /**
-     * 获取请求载荷。
-     */
-    public Object getPayload() {
-        return payload;
+    public Object getData() {
+        return data;
     }
 
-    /**
-     * 设置请求载荷。
-     */
-    public void setPayload(Object payload) {
-        this.payload = payload;
+    public void setData(Object data) {
+        this.data = data;
+    }
+
+    public long getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(long timestamp) {
+        this.timestamp = timestamp;
     }
 }
