@@ -23,9 +23,9 @@ public class SocketClient {
     private BufferedReader in;
 
     /**
-     * 发送登录请求
-     * @param jsonRequest JSON 字符串
-     * @return 服务端返回的首行响应；如果超时或失败返回 null
+     * 发送登录请求到服务器，并读取首行响应。
+     * @param jsonRequest JSON 字符串请求体
+     * @return 首行响应字符串，失败或超时返回 null
      */
     public String sendLoginRequest(String jsonRequest) {
         try {
@@ -51,13 +51,12 @@ public class SocketClient {
     }
 
     /**
-     * 发送消息（保持连接）
-     * @param jsonMessage JSON格式的消息
-     * @return 发送是否成功
+     * 在保持连接的情况下发送消息。
+     * @param jsonMessage JSON 格式的消息
+     * @return true 表示发送成功；否则返回 false
      */
     public boolean sendMessage(String jsonMessage) {
         if (!connected || out == null) {
-            System.err.println("未连接到服务器，无法发送消息");
             return false;
         }
 
@@ -65,13 +64,13 @@ public class SocketClient {
             out.println(jsonMessage);
             return true;
         } catch (Exception e) {
-            System.err.println("发送消息失败: " + e.getMessage());
             return false;
         }
     }
 
     /**
-     * 接收消息
+     * 从服务器读取一行消息（非阻塞尝试）。
+     * @return 有可读数据时返回读取到的一行；否则返回 null
      */
     public String receiveMessage() {
         try {
@@ -79,20 +78,20 @@ public class SocketClient {
                 return in.readLine();
             }
         } catch (IOException e) {
-            System.err.println("接收消息错误: " + e.getMessage());
+            // 静默失败，返回 null
         }
         return null;
     }
 
     /**
-     * 检查连接状态
+     * 检查当前是否仍然连接到服务器。
      */
     public boolean isConnected() {
         return connected && socket != null && !socket.isClosed();
     }
 
     /**
-     * 断开连接
+     * 主动断开与服务器的连接并释放资源。
      */
     public void disconnect() {
         connected = false;
@@ -101,14 +100,20 @@ public class SocketClient {
             if (in != null) in.close();
             if (socket != null) socket.close();
         } catch (IOException e) {
-            System.err.println("关闭连接时出错: " + e.getMessage());
+            // 静默关闭
         }
     }
 
+    /**
+     * 获取服务器地址（常量）。
+     */
     public String getServerAddress() {
         return SERVER_ADDRESS;
     }
 
+    /**
+     * 获取服务器端口（常量）。
+     */
     public int getServerPort() {
         return SERVER_PORT;
     }

@@ -7,6 +7,7 @@ module com.chat {
     opens com.chat.control to javafx.fxml;
     opens com.chat.ui to javafx.fxml;
     opens com.chat.model to com.google.gson;
+    opens com.chat.protocol to com.google.gson;
     opens com.chat to javafx.graphics;
 
     exports com.chat;
