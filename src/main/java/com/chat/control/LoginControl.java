@@ -1,13 +1,11 @@
 package com.chat.control;
 
-import com.chat.model.Request;
 import com.chat.network.SocketClient;
 import com.chat.protocol.LoginRequest;
+import com.chat.protocol.LoginResponse;
 import com.chat.ui.CustomButton;
 import com.chat.ui.DialogUtil;
 import com.google.gson.Gson;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import javafx.concurrent.Task;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -108,14 +106,13 @@ public class LoginControl {
      * @return 服务器返回的首行响应字符串，失败时返回 null
      */
     private String sendLoginRequest(String username, String password) {
-        Gson gson = new Gson();
         String encrypted = PasswordEncryptor.encrypt(password);
-        Request request = new Request(com.chat.protocol.MessageType.LOGIN_REQUEST, new LoginRequest(username, encrypted));
-        return socketClient.sendLoginRequest(gson.toJson(request));
+        LoginRequest request = new LoginRequest(username, encrypted);
+        return socketClient.sendLoginRequest(request);
     }
 
     /**
-     * 处理登录响应：支持规范化的 login_response，也兼容旧格式（status 字段）。
+     * 按照当前标准处理登录响应：顶层字段必须包含 type、success，可选 uid、message。
      */
     private void handleLoginResponse(String response, String username) {
         if (response == null) {
@@ -123,71 +120,80 @@ public class LoginControl {
             return;
         }
 
+        // 先解析 JSON
+        LoginResponse resp;
         try {
-            JsonObject json = JsonParser.parseString(response).getAsJsonObject();
-            String type = json.has("type") ? json.get("type").getAsString() : "";
-            String status = json.has("status") ? json.get("status").getAsString() : "";
-            String message = json.has("message") ? json.get("message").getAsString() : "";
-
-            boolean loginOk = false;
-            if (com.chat.protocol.MessageType.LOGIN_RESPONSE.equals(type)) {
-                // 标准协议：从 data 中读取 authenticated
-                if (json.has("data") && json.get("data").isJsonObject()) {
-                    JsonObject data = json.getAsJsonObject("data");
-                    loginOk = data.has("authenticated") && data.get("authenticated").getAsBoolean();
-                    if (!loginOk && data.has("error")) {
-                        message = translateLoginError(data.get("error").getAsString(), message);
-                    }
-                }
-            } else {
-                // 兼容旧协议：依据 status 判断
-                loginOk = "SUCCESS".equalsIgnoreCase(status) || "OK".equalsIgnoreCase(status);
-                if (!loginOk && (message == null || message.isBlank())) {
-                    message = "登录失败，用户或密码错误，请重试";
-                }
-            }
-
-            if (loginOk) {
-                showMainWindow(username);
-                closeLoginWindow();
-            } else {
-                DialogUtil.showInfo(loginButton.getScene().getWindow(),
-                        message == null || message.isBlank() ? "登录失败，用户或密码错误，请重试" : message);
-                socketClient.disconnect();
-            }
+            Gson gson = new Gson();
+            resp = gson.fromJson(response, LoginResponse.class);
         } catch (Exception e) {
-            DialogUtil.showInfo(loginButton.getScene().getWindow(), "响应解析错误，请稍后重试");
-            socketClient.disconnect();
+            System.out.println("Server response: " + response);
+            DialogUtil.showInfo(loginButton.getScene().getWindow(), "响应解析错误: " + e.getMessage() + "，请稍后重试");
+            if (socketClient != null) socketClient.disconnect();
+            return;
+        }
+
+        // 校验响应类型
+        if (resp == null || resp.getType() == null || !com.chat.protocol.MessageType.LOGIN_RESPONSE.equals(resp.getType())) {
+            DialogUtil.showInfo(loginButton.getScene().getWindow(), "响应类型不匹配，稍后重试");
+            if (socketClient != null) socketClient.disconnect();
+            return;
+        }
+
+        boolean loginOk = resp.isSuccess();
+        String uid = resp.getUid();
+        String message = resp.getMessage();
+
+        if (!loginOk) {
+            DialogUtil.showInfo(loginButton.getScene().getWindow(),
+                    (message == null || message.isBlank()) ? "登录失败，用户或密码错误，请重试" : message);
+            if (socketClient != null) socketClient.disconnect();
+            return;
+        }
+
+        // 登录成功，加载主界面（与响应解析分开处理）
+        try {
+            showMainWindow(username, uid);
+            closeLoginWindow();
+        } catch (IOException e) {
+            // 将加载失败的详细堆栈直接打印到控制台，便于定位 FXML 事件/ID 不匹配问题
+            e.printStackTrace();
+            DialogUtil.showInfo(loginButton.getScene().getWindow(), "加载主界面失败: " + e.getMessage());
+            if (socketClient != null) socketClient.disconnect();
         }
     }
 
     /**
-     * 将服务端错误码翻译为更友好的提示文案。
+     * 打开主界面并传入用户名、用户ID与已建立的 SocketClient。
      */
-    private String translateLoginError(String code, String fallback) {
-        if (code == null) return fallback;
-        return switch (code) {
-            case "INVALID_CREDENTIALS" -> "登录失败，用户或密码错误，请重试";
-            case "ACCOUNT_LOCKED" -> "账号已被锁定，请稍后再试或联系管理员";
-            default -> (fallback == null || fallback.isBlank()) ? "登录失败，请重试" : fallback;
-        };
-    }
+    private void showMainWindow(String username, String uid) throws IOException {
+        try {
+            var fxmlUrl = getClass().getResource("/com/chat/fxml/main.fxml");
+            if (fxmlUrl == null) {
+                System.err.println("[FXML] 资源未找到: /com/chat/fxml/main.fxml (请确认资源路径与打包情况)");
+                throw new IOException("找不到 main.fxml 资源");
+            }
+            System.out.println("[FXML] 加载资源: " + fxmlUrl.toExternalForm());
 
-    /**
-     * 打开主界面并传入用户名与已建立的 SocketClient。
-     */
-    private void showMainWindow(String username) throws IOException {
-        FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/chat/fxml/main.fxml"));
-        Parent root = loader.load();
+            FXMLLoader loader = new FXMLLoader(fxmlUrl);
+            Parent root = loader.load();
 
-        MainController controller = loader.getController();
-        controller.setUsername(username);
-        controller.setSocketClient(socketClient);
+            MainController controller = loader.getController();
+            controller.setUsername(username);
+            controller.setSocketClient(socketClient);
+            if (uid != null && !uid.isBlank()) {
+                controller.setUserId(uid);
+            }
 
-        Stage stage = new Stage();
-        stage.setTitle("中杯聊天软件 - " + username);
-        stage.setScene(new Scene(root, 700, 500));
-        stage.show();
+            Stage stage = new Stage();
+            stage.setTitle("中杯聊天软件 - " + username);
+            stage.setScene(new Scene(root, 700, 500));
+            stage.show();
+        } catch (Exception e) {
+            System.err.println("[FXML] 加载 main.fxml 失败: " + e.getMessage());
+            e.printStackTrace();
+            if (e instanceof IOException io) throw io;
+            throw new IOException("加载主界面失败", e);
+        }
     }
 
     /**

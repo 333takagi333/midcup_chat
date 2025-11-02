@@ -66,4 +66,6 @@ public class CustomButton extends AnchorPane {
     public EventHandler<ActionEvent> getOnAction() {
         return button.getOnAction();
     }
+
+
 }
