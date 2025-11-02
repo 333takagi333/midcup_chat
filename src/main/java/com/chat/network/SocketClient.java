@@ -9,6 +9,8 @@ import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 
+import com.google.gson.Gson;
+
 /**
  * 简单的基于 TCP 的客户端，用于向服务器发送请求并获取响应。
  */
@@ -24,10 +26,10 @@ public class SocketClient {
 
     /**
      * 发送登录请求到服务器，并读取首行响应。
-     * @param jsonRequest JSON 字符串请求体
+     * @param data 请求数据对象
      * @return 首行响应字符串，失败或超时返回 null
      */
-    public String sendLoginRequest(String jsonRequest) {
+    public String sendLoginRequest(Object data) {
         try {
             socket = new Socket(SERVER_ADDRESS, SERVER_PORT);
             socket.setSoTimeout(TIMEOUT_MS);
@@ -36,7 +38,8 @@ public class SocketClient {
             in = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
 
             // 发送请求
-            out.println(jsonRequest);
+            String json = new Gson().toJson(data);
+            out.println(json);
 
             // 读取响应
             String response = in.readLine();
@@ -51,17 +54,17 @@ public class SocketClient {
     }
 
     /**
-     * 在保持连接的情况下发送消息。
-     * @param jsonMessage JSON 格式的消息
+     * 发送一条消息（要求已建立连接）。
+     * @param data 数据对象
      * @return true 表示发送成功；否则返回 false
      */
-    public boolean sendMessage(String jsonMessage) {
+    public boolean sendMessage(Object data) {
         if (!connected || out == null) {
             return false;
         }
-
         try {
-            out.println(jsonMessage);
+            String json = new Gson().toJson(data);
+            out.println(json);
             return true;
         } catch (Exception e) {
             return false;
