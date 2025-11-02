@@ -1,157 +1,209 @@
 package com.chat.control;
 
 import com.chat.network.SocketClient;
-import com.chat.protocol.ChatPrivateReceive;
 import com.chat.protocol.ChatPrivateSend;
+import com.chat.protocol.ChatPrivateReceive;
 import com.chat.protocol.MessageType;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import javafx.application.Platform;
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.ListCell;
-import javafx.scene.control.ListView;
-import javafx.scene.control.Tab;
-import javafx.scene.control.TabPane;
-import javafx.scene.control.TextField;
-import javafx.event.ActionEvent;
+import javafx.scene.control.*;
 
 import java.net.URL;
 import java.util.ResourceBundle;
 
 /**
- * 主界面控制器：三层布局，顶部显示当前用户名；中部显示消息列表；底部为输入栏发送消息。
+ * 主界面控制器 - 支持消息发送和接收
  */
 public class MainController implements Initializable {
 
     @FXML private Label usernameLabel;
-    @FXML private TabPane tabPane;
-    @FXML private Tab chatTab;
-    @FXML private ListView<String> chatListView;
-    @FXML private TextField toField;
-    @FXML private TextField messageTextField;
+    @FXML private TextField targetUserField;
+    @FXML private TextField messageField;
     @FXML private Button sendButton;
-    @FXML private Tab usersTab;
-    @FXML private ListView<String> usersListView;
+    @FXML private Button testButton;
+    @FXML private TextArea statusArea;
 
     private String currentUsername;
+    private String userId;
     private SocketClient socketClient;
-    private String userId; // 登录成功后服务端返回的 UID
-    private ObservableList<String> messages;
-
+    private Gson gson = new Gson();
     private volatile boolean receiving = false;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        // 初始化聊天列表的数据模型，避免因未设置 items 导致的 NPE 或不可见问题
-        if (chatListView != null) {
-            chatListView.setItems(FXCollections.observableArrayList());
-        }
-        // 输入框与按钮按回车/点击发送（与 FXML onAction 重复也没关系，双重保障）
-        if (messageTextField != null) {
-            messageTextField.setOnAction(this::onSend);
-        }
-        if (sendButton != null) {
-            sendButton.setOnAction(this::onSend);
+        messageField.setOnAction(event -> sendMessage());
+    }
+
+    public void setUserId(String userId) {
+        this.userId = userId;
+    }
+
+    public String getUserId() {
+        return userId;
+    }
+
+    /**
+     * 发送消息
+     */
+    @FXML
+    private void sendMessage() {
+        String targetUser = targetUserField.getText().trim();
+        String messageContent = messageField.getText().trim();
+
+        if (!validateInput(targetUser, messageContent)) return;
+
+        ChatPrivateSend payload = new ChatPrivateSend(currentUsername, targetUser, messageContent);
+        boolean success = socketClient.sendMessage(payload);
+
+        if (success) {
+            appendStatus("我 -> " + targetUser + ": " + messageContent);
+            messageField.clear();
+        } else {
+            appendStatus("✗ 消息发送失败");
         }
     }
 
     /**
-     * 发送按钮/回车发送处理。
+     * 测试连接状态
      */
     @FXML
-    public void onSend(ActionEvent event) {
-        String to = toField != null ? toField.getText() : null;
-        String content = messageTextField != null ? messageTextField.getText() : null;
-
-        if (to == null || to.isBlank() || content == null || content.isBlank()) {
-            return;
-        }
-        if (socketClient == null) {
-            appendMessage("[系统] 未连接到服务器，无法发送。");
-            return;
-        }
-
-        ChatPrivateSend payload = new ChatPrivateSend(currentUsername, to, content);
-        boolean ok = socketClient.sendMessage(payload);
-        if (ok) {
-            appendMessage("我 -> " + to + ": " + content);
-            messageTextField.clear();
-        } else {
-            appendMessage("[系统] 发送失败，请检查网络或重试。");
-        }
+    private void testConnection() {
+        boolean connected = socketClient != null && socketClient.isConnected();
+        appendStatus(connected ? "✓ 连接正常" : "✗ 连接断开");
     }
 
-    /** 顶部显示用户名 */
+    private boolean validateInput(String targetUser, String messageContent) {
+        if (targetUser.isEmpty()) {
+            showAlert("请输入目标用户名");
+            return false;
+        }
+        if (messageContent.isEmpty()) {
+            showAlert("请输入消息内容");
+            return false;
+        }
+        if (socketClient == null || !socketClient.isConnected()) {
+            showAlert("未连接到服务器");
+            return false;
+        }
+        return true;
+    }
+
     public void setUsername(String username) {
         this.currentUsername = username;
-        if (usernameLabel != null) {
-            usernameLabel.setText("当前用户: " + username);
+        usernameLabel.setText("当前用户: " + username);
+    }
+
+    public void setSocketClient(SocketClient socketClient) {
+        this.socketClient = socketClient;
+        if (socketClient != null) {
+            startReceiver();
         }
     }
 
-    /** 注入 SocketClient 并启动接收线程。 */
-    public void setSocketClient(SocketClient socketClient) {
-        this.socketClient = socketClient;
-        startReceiver();
-    }
-
-    /** 设置 UID（可用于后续会话识别、拉取会话列表等）。 */
-    public void setUserId(String userId) { this.userId = userId; }
-    public String getUserId() { return userId; }
-
+    /**
+     * 启动消息接收线程
+     */
     private void startReceiver() {
         if (socketClient == null) return;
         receiving = true;
-        Thread t = new Thread(() -> {
-            Gson gson = new Gson();
+
+        Thread receiverThread = new Thread(() -> {
             while (receiving && socketClient.isConnected()) {
                 try {
                     String line = socketClient.receiveMessage();
                     if (line == null) {
-                        try { Thread.sleep(50); } catch (InterruptedException ignored) {}
+                        Thread.sleep(50);
                         continue;
                     }
-
-                    System.out.println("Received message: " + line); // 输出接收到的消息到控制台
-
-                    // 严格按标准外层解析：{ type, data, timestamp? }
-                    JsonObject root = JsonParser.parseString(line).getAsJsonObject();
-                    String type = root.has("type") ? root.get("type").getAsString() : "";
-                    if (MessageType.CHAT_PRIVATE_RECEIVE.equals(type)) {
-                        if (!root.has("data") || !root.get("data").isJsonObject()) {
-                            // 非法消息，忽略
-                            continue;
-                        }
-                        ChatPrivateReceive msg = gson.fromJson(root.getAsJsonObject("data"), ChatPrivateReceive.class);
-                        if (msg != null) {
-                            appendMessage(msg.getFrom() + " -> 我: " + msg.getContent());
-                        }
-                    }
+                    processServerMessage(line);
                 } catch (Exception e) {
-                    // 忽略单次解析异常，继续循环
+                    if (!socketClient.isConnected()) break;
                 }
             }
-        }, "chat-receiver");
-        t.setDaemon(true);
-        t.start();
+        }, "message-receiver");
+
+        receiverThread.setDaemon(true);
+        receiverThread.start();
     }
 
-    private void appendMessage(String text) {
-        if (chatListView == null) return;
-        if (Platform.isFxApplicationThread()) {
-            chatListView.getItems().add(text);
-            chatListView.scrollTo(chatListView.getItems().size() - 1);
-        } else {
+    /**
+     * 处理从服务器接收到的消息
+     */
+    private void processServerMessage(String message) {
+        try {
+            JsonObject root = JsonParser.parseString(message).getAsJsonObject();
+            String type = root.has("type") ? root.get("type").getAsString() : "";
+
             Platform.runLater(() -> {
-                chatListView.getItems().add(text);
-                chatListView.scrollTo(chatListView.getItems().size() - 1);
+                try {
+                    if (MessageType.CHAT_PRIVATE_RECEIVE.equals(type)) {
+                        processPrivateMessage(root);
+                    } else {
+                        appendStatus("[其他] " + message);
+                    }
+                } catch (Exception e) {
+                    appendStatus("[解析错误] " + message);
+                }
             });
+
+        } catch (Exception e) {
+            Platform.runLater(() -> {
+                appendStatus("[格式错误] " + message);
+            });
+        }
+    }
+
+    /**
+     * 处理私聊消息
+     */
+    private void processPrivateMessage(JsonObject root) {
+        try {
+            ChatPrivateReceive msg = gson.fromJson(root, ChatPrivateReceive.class);
+            if (msg != null) {
+                appendStatus(msg.getFrom() + " -> 我: " + msg.getContent());
+            }
+        } catch (Exception e) {
+            try {
+                String fromUser = root.get("from").getAsString();
+                String content = root.get("content").getAsString();
+                appendStatus(fromUser + " -> 我: " + content);
+            } catch (Exception ex) {
+                appendStatus("[消息错误]");
+            }
+        }
+    }
+
+    /**
+     * 在状态区域添加消息
+     */
+    private void appendStatus(String message) {
+        Platform.runLater(() -> {
+            statusArea.appendText(message + "\n");
+            statusArea.setScrollTop(Double.MAX_VALUE);
+        });
+    }
+
+    /**
+     * 显示提示对话框
+     */
+    private void showAlert(String message) {
+        Platform.runLater(() -> {
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("提示");
+            alert.setHeaderText(null);
+            alert.setContentText(message);
+            alert.showAndWait();
+        });
+    }
+
+    public void cleanup() {
+        receiving = false;
+        if (socketClient != null) {
+            socketClient.disconnect();
         }
     }
 }

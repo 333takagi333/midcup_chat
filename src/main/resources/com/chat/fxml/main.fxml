@@ -15,30 +15,45 @@
     </top>
 
     <center>
-        <TabPane fx:id="tabPane" prefHeight="400.0" prefWidth="600.0">
-            <tabs>
-                <Tab fx:id="chatTab" text="聊天">
-                    <content>
-                        <VBox spacing="10">
-                            <padding>
-                                <Insets top="10" right="10" bottom="10" left="10" />
-                            </padding>
-                            <ListView fx:id="chatListView" prefHeight="300.0" />
-                            <HBox spacing="10">
-                                <Label text="To:" />
-                                <TextField fx:id="toField" promptText="对方用户名" prefWidth="160" />
-                                <TextField fx:id="messageTextField" HBox.hgrow="ALWAYS" promptText="输入消息..." onAction="#onSend" />
-                                <Button fx:id="sendButton" text="发送" onAction="#onSend" />
-                            </HBox>
-                        </VBox>
-                    </content>
-                </Tab>
-                <Tab fx:id="usersTab" text="用户列表">
-                    <content>
-                        <ListView fx:id="usersListView" />
-                    </content>
-                </Tab>
-            </tabs>
-        </TabPane>
+        <VBox spacing="15" alignment="TOP_CENTER">
+            <padding>
+                <Insets bottom="20" left="20" right="20" top="20" />
+            </padding>
+
+            <!-- 消息发送区域 -->
+            <VBox spacing="10" style="-fx-padding: 15; -fx-background-color: #f5f5f5; -fx-background-radius: 5;">
+                <Label text="发送消息" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+
+                <HBox spacing="10" alignment="CENTER_LEFT">
+                    <Label text="目标用户:" style="-fx-font-size: 14px; -fx-min-width: 80;"/>
+                    <TextField fx:id="targetUserField" promptText="请输入接收消息的用户名"
+                               prefWidth="200.0" prefHeight="35.0"/>
+                </HBox>
+
+                <HBox spacing="10" alignment="CENTER_LEFT">
+                    <Label text="消息内容:" style="-fx-font-size: 14px; -fx-min-width: 80;"/>
+                    <TextField fx:id="messageField" promptText="请输入要发送的消息"
+                               prefWidth="300.0" prefHeight="35.0"/>
+                </HBox>
+
+                <HBox spacing="15" alignment="CENTER">
+                    <Button fx:id="sendButton" text="发送消息"
+                            onAction="#sendMessage"
+                            style="-fx-background-color: #0078d4; -fx-text-fill: white; -fx-pref-width: 100px; -fx-pref-height: 35px;"/>
+
+                    <Button fx:id="testButton" text="测试连接"
+                            onAction="#testConnection"
+                            style="-fx-background-color: #28a745; -fx-text-fill: white; -fx-pref-width: 100px; -fx-pref-height: 35px;"/>
+                </HBox>
+            </VBox>
+
+            <!-- 状态显示区域 -->
+            <VBox spacing="5" prefWidth="600.0">
+                <Label text="消息状态:" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+                <TextArea fx:id="statusArea" prefHeight="200.0" prefWidth="600.0"
+                          editable="false" wrapText="true"
+                          style="-fx-font-family: 'Microsoft YaHei'; -fx-font-size: 12px;"/>
+            </VBox>
+        </VBox>
     </center>
 </BorderPane>
