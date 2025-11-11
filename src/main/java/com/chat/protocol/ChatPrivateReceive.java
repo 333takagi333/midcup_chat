@@ -1,41 +1,121 @@
 package com.chat.protocol;
 
-import com.chat.protocol.MessageType;
-
 /**
  * 私聊接收：服务器 -> 客户端
  */
+@SuppressWarnings("unused")
 public class ChatPrivateReceive {
-    private String type;     // 协议类型：MessageType.CHAT_PRIVATE_RECEIVE
-    private String from;     // 发送方用户名
-    private String to;       // 接收方用户名（本客户端）
-    private String content;  // 文本内容
-    private long timestamp;  // 服务器时间戳或消息时间
+    private String type;
+    private Long fromUserId;
+    private Long toUserId;
+    private String content;
+    private String contentType;
+    private String fileUrl;
+    private Long fileSize;
+    private String fileName;
+    private long timestamp;
+    private Long id;        // message.id
+    private Integer isRead; // 0/1 当前用户是否已读
 
     public ChatPrivateReceive() {
         this.type = MessageType.CHAT_PRIVATE_RECEIVE;
     }
 
-    public ChatPrivateReceive(String from, String to, String content, long timestamp) {
+    public ChatPrivateReceive(Long fromUserId, Long toUserId, String content, String contentType, long timestamp) {
         this.type = MessageType.CHAT_PRIVATE_RECEIVE;
-        this.from = from;
-        this.to = to;
+        this.fromUserId = fromUserId;
+        this.toUserId = toUserId;
         this.content = content;
+        this.contentType = contentType;
         this.timestamp = timestamp;
     }
 
-    public String getType() { return type; }
-    public void setType(String type) { this.type = type; }
+    public String getType() {
+        return type;
+    }
 
-    public String getFrom() { return from; }
-    public void setFrom(String from) { this.from = from; }
+    public void setType(String type) {
+        this.type = type;
+    }
 
-    public String getTo() { return to; }
-    public void setTo(String to) { this.to = to; }
+    public Long getFromUserId() {
+        return fromUserId;
+    }
 
-    public String getContent() { return content; }
-    public void setContent(String content) { this.content = content; }
+    public void setFromUserId(Long fromUserId) {
+        this.fromUserId = fromUserId;
+    }
 
-    public long getTimestamp() { return timestamp; }
-    public void setTimestamp(long timestamp) { this.timestamp = timestamp; }
+    public Long getToUserId() {
+        return toUserId;
+    }
+
+    public void setToUserId(Long toUserId) {
+        this.toUserId = toUserId;
+    }
+
+    public String getContent() {
+        return content;
+    }
+
+    public void setContent(String content) {
+        this.content = content;
+    }
+
+    public String getContentType() {
+        return contentType;
+    }
+
+    public void setContentType(String contentType) {
+        this.contentType = contentType;
+    }
+
+    public String getFileUrl() {
+        return fileUrl;
+    }
+
+    public void setFileUrl(String fileUrl) {
+        this.fileUrl = fileUrl;
+    }
+
+    public Long getFileSize() {
+        return fileSize;
+    }
+
+    public void setFileSize(Long fileSize) {
+        this.fileSize = fileSize;
+    }
+
+    public String getFileName() {
+        return fileName;
+    }
+
+    public void setFileName(String fileName) {
+        this.fileName = fileName;
+    }
+
+    public long getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(long timestamp) {
+        this.timestamp = timestamp;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public Integer getIsRead() {
+        return isRead;
+    }
+
+    public void setIsRead(Integer isRead) {
+        this.isRead = isRead;
+    }
 }
+

@@ -3,6 +3,7 @@ package com.chat.protocol;
 /**
  * 登录请求数据
  */
+@SuppressWarnings("unused")
 public class LoginRequest {
     private String type;     // 协议类型：MessageType.LOGIN_REQUEST
     private String username;
