@@ -64,9 +64,12 @@ public class SocketClient {
         }
         try {
             String json = new Gson().toJson(data);
+            // 调试输出：查看实际发送的 JSON
+            System.out.println("[SOCKET] Sending: " + json);
             out.println(json);
             return true;
         } catch (Exception e) {
+            System.out.println("[SOCKET] Send failed: " + e.getMessage());
             return false;
         }
     }

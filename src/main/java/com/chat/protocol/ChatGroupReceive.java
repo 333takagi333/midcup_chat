@@ -1,41 +1,35 @@
 package com.chat.protocol;
 
 /**
- * 私聊发送：客户端 -> 服务器
+ * 群聊接收：服务器 -> 客户端
  */
 @SuppressWarnings("unused")
-public class ChatPrivateSend {
-    private String type;     // 协议类型：MessageType.CHAT_PRIVATE_SEND
+public class ChatGroupReceive {
+    private String type = MessageType.CHAT_GROUP_RECEIVE;
+    private Long groupId;
     private Long fromUserId;
-    private Long toUserId;
     private String content;
-    private String contentType;
+    private String contentType = ContentType.TEXT;
+
     private String fileUrl;
     private Long fileSize;
     private String fileName;
-    private long timestamp;  // 客户端时间戳
 
-    public ChatPrivateSend() {
-        this.type = MessageType.CHAT_PRIVATE_SEND;
-    }
+    private long timestamp; // 服务器消息时间
 
-    public ChatPrivateSend(Long fromUserId, Long toUserId, String content, String contentType) {
-        this.type = MessageType.CHAT_PRIVATE_SEND;
-        this.fromUserId = fromUserId;
-        this.toUserId = toUserId;
-        this.content = content;
-        this.contentType = contentType;
-        this.timestamp = System.currentTimeMillis();
-    }
+    private Long id;          // message.id
+    private Integer isRead;   // 0/1 当前用户是否已读（可选）
+
+    public ChatGroupReceive() {}
 
     public String getType() { return type; }
     public void setType(String type) { this.type = type; }
 
+    public Long getGroupId() { return groupId; }
+    public void setGroupId(Long groupId) { this.groupId = groupId; }
+
     public Long getFromUserId() { return fromUserId; }
     public void setFromUserId(Long fromUserId) { this.fromUserId = fromUserId; }
-
-    public Long getToUserId() { return toUserId; }
-    public void setToUserId(Long toUserId) { this.toUserId = toUserId; }
 
     public String getContent() { return content; }
     public void setContent(String content) { this.content = content; }
@@ -54,4 +48,9 @@ public class ChatPrivateSend {
 
     public long getTimestamp() { return timestamp; }
     public void setTimestamp(long timestamp) { this.timestamp = timestamp; }
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public Integer getIsRead() { return isRead; }
+    public void setIsRead(Integer isRead) { this.isRead = isRead; }
 }

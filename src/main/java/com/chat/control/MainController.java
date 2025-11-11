@@ -1,10 +1,9 @@
 package com.chat.control;
 
 import com.chat.network.SocketClient;
-import com.chat.protocol.ChatPrivateSend;
-import com.chat.protocol.ChatPrivateReceive;
 import com.chat.protocol.MessageType;
-import com.google.gson.Gson;
+import com.chat.protocol.ChatPrivateSend;
+import com.chat.protocol.ContentType;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import javafx.application.Platform;
@@ -30,7 +29,6 @@ public class MainController implements Initializable {
     private String currentUsername;
     private String userId;
     private SocketClient socketClient;
-    private Gson gson = new Gson();
     private volatile boolean receiving = false;
 
     @Override
@@ -47,7 +45,7 @@ public class MainController implements Initializable {
     }
 
     /**
-     * 发送消息
+     * 发送消息（服务器期待字段：type, fromUserId, toUserId, content, contentType, timestamp）
      */
     @FXML
     private void sendMessage() {
@@ -56,11 +54,22 @@ public class MainController implements Initializable {
 
         if (!validateInput(targetUser, messageContent)) return;
 
-        ChatPrivateSend payload = new ChatPrivateSend(currentUsername, targetUser, messageContent);
+        Long fromId;
+        Long toId;
+        try {
+            fromId = Long.parseLong(userId);
+            toId = Long.parseLong(targetUser);
+        } catch (NumberFormatException e) {
+            showAlert("用户ID必须为数字 (from/to)");
+            return;
+        }
+
+        // 使用协议类，Gson 会生成所需 JSON 字段
+        ChatPrivateSend payload = new ChatPrivateSend(fromId, toId, messageContent, ContentType.TEXT);
         boolean success = socketClient.sendMessage(payload);
 
         if (success) {
-            appendStatus("我 -> " + targetUser + ": " + messageContent);
+            appendStatus("我(" + fromId + ") -> " + toId + ": " + messageContent);
             messageField.clear();
         } else {
             appendStatus("✗ 消息发送失败");
@@ -78,7 +87,7 @@ public class MainController implements Initializable {
 
     private boolean validateInput(String targetUser, String messageContent) {
         if (targetUser.isEmpty()) {
-            showAlert("请输入目标用户名");
+            showAlert("请输入目标用户ID");
             return false;
         }
         if (messageContent.isEmpty()) {
@@ -87,6 +96,10 @@ public class MainController implements Initializable {
         }
         if (socketClient == null || !socketClient.isConnected()) {
             showAlert("未连接到服务器");
+            return false;
+        }
+        if (userId == null || userId.isBlank()) {
+            showAlert("当前用户ID缺失，请重新登录");
             return false;
         }
         return true;
@@ -119,6 +132,8 @@ public class MainController implements Initializable {
                         Thread.sleep(50);
                         continue;
                     }
+                    // 控制台输出原始消息
+                    System.out.println("Received raw message: " + line);
                     processServerMessage(line);
                 } catch (Exception e) {
                     if (!socketClient.isConnected()) break;
@@ -158,22 +173,22 @@ public class MainController implements Initializable {
     }
 
     /**
-     * 处理私聊消息
+     * 处理私聊消息：优先使用 fromUserId 字段
      */
     private void processPrivateMessage(JsonObject root) {
         try {
-            ChatPrivateReceive msg = gson.fromJson(root, ChatPrivateReceive.class);
-            if (msg != null) {
-                appendStatus(msg.getFrom() + " -> 我: " + msg.getContent());
+            String fromDisplay;
+            if (root.has("fromUserId")) {
+                fromDisplay = String.valueOf(root.get("fromUserId").getAsLong());
+            } else if (root.has("from")) {
+                fromDisplay = root.get("from").getAsString();
+            } else {
+                fromDisplay = "未知";
             }
+            String content = root.has("content") ? root.get("content").getAsString() : "";
+            appendStatus(fromDisplay + " -> 我: " + content);
         } catch (Exception e) {
-            try {
-                String fromUser = root.get("from").getAsString();
-                String content = root.get("content").getAsString();
-                appendStatus(fromUser + " -> 我: " + content);
-            } catch (Exception ex) {
-                appendStatus("[消息错误]");
-            }
+            appendStatus("[消息错误]");
         }
     }
 
