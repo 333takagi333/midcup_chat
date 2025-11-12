@@ -50,21 +50,39 @@ public class LoginControl {
     }
 
     /**
-     * 注册入口（占位）。
+     * 注册入口。
      */
     @FXML
     void register(ActionEvent event) {
-        DialogUtil.showInfo(loginButton.getScene().getWindow(), "注册功能开发中...");
-    }
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/chat/fxml/register.fxml"));
+            Parent root = loader.load();
 
+            Stage stage = (Stage) registerLink.getScene().getWindow();
+            stage.setScene(new Scene(root, 400, 400));
+            stage.setTitle("中杯聊天软件 - 注册");
+        } catch (Exception e) {
+            System.err.println("加载注册页面失败: " + e.getMessage());
+            DialogUtil.showInfo(loginButton.getScene().getWindow(), "加载注册页面失败");
+        }
+    }
     /**
-     * 忘记密码入口（占位）。
+     * 忘记密码入口。
      */
     @FXML
     void forgotPassword(ActionEvent event) {
-        DialogUtil.showInfo(loginButton.getScene().getWindow(), "忘记密码功能开发中...");
-    }
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/chat/fxml/forgot_password.fxml"));
+            Parent root = loader.load();
 
+            Stage stage = (Stage) forgotPasswordLink.getScene().getWindow();
+            stage.setScene(new Scene(root, 400, 400));
+            stage.setTitle("中杯聊天软件 - 忘记密码");
+        } catch (Exception e) {
+            e.printStackTrace();
+            DialogUtil.showInfo(loginButton.getScene().getWindow(), "加载忘记密码页面失败");
+        }
+    }
     /**
      * 执行登录流程：校验输入 -> 后台线程向服务器发送登录请求 -> 处理响应。
      */
