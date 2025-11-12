@@ -32,4 +32,8 @@ public final class MessageType {
     // 群组列表
     public static final String GROUP_LIST_REQUEST = "group_list_request";     // C -> S
     public static final String GROUP_LIST_RESPONSE = "group_list_response";   // S -> C
+
+    // 重置密码
+    public static final String RESET_PASSWORD_REQUEST = "reset_password_request";
+    public static final String RESET_PASSWORD_RESPONSE = "reset_password_response";
 }
