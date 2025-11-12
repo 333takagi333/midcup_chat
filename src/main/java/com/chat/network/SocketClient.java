@@ -10,6 +10,7 @@ import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 
 import com.google.gson.Gson;
+import com.chat.protocol.*;
 
 /**
  * 简单的基于 TCP 的客户端，用于向服务器发送请求并获取响应。
@@ -52,6 +53,15 @@ public class SocketClient {
             return null;
         }
     }
+
+    public String sendRegisterRequest(RegisterRequest request) {
+        return sendLoginRequest(request);
+    }
+
+    public String sendResetPasswordRequest(ResetPasswordRequest request) {
+        return sendLoginRequest(request);
+    }
+
 
     /**
      * 发送一条消息（要求已建立连接）。
