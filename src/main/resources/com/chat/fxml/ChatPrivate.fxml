@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.chat.control.ChatPrivateControl">
+    <HBox style="-fx-background-color: #ecf0f1; -fx-padding: 10;" spacing="10">
+        <ImageView fx:id="contactAvatar" fitWidth="40" fitHeight="40" />
+        <Label fx:id="contactNameLabel" style="-fx-font-size: 16; -fx-font-weight: bold;" />
+    </HBox>
+
+    <TextArea fx:id="chatArea" VBox.vgrow="ALWAYS" editable="false" wrapText="true"
+              style="-fx-control-inner-background: #f8f9fa; -fx-font-family: 'Microsoft YaHei';" />
+
+    <HBox spacing="5" style="-fx-padding: 10;">
+        <TextField fx:id="messageInput" HBox.hgrow="ALWAYS" promptText="输入消息..." />
+        <Button text="发送" onAction="#sendMessage" defaultButton="true"
+                style="-fx-background-color: #3498db; -fx-text-fill: white;" />
+    </HBox>
+</VBox>

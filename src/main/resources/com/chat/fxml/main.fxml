@@ -1,59 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.geometry.Insets?>
 
-<BorderPane prefHeight="500.0" prefWidth="700.0" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.chat.control.MainController">
+<BorderPane fx:id="mainContainer" xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.chat.control.MainControl">
     <top>
-        <VBox alignment="CENTER_LEFT" prefHeight="60.0" spacing="8" style="-fx-background-color: #0078d4;">
-            <padding>
-                <Insets bottom="10" left="20" right="20" top="10" />
-            </padding>
-            <Label fx:id="usernameLabel" text="用户" style="-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;" />
-        </VBox>
+        <HBox fx:id="topBar" spacing="15" style="-fx-background-color: #2c3e50; -fx-padding: 10;">
+            <ImageView fx:id="avatarImage" fitWidth="40" fitHeight="40" />
+            <Label fx:id="usernameLabel" style="-fx-text-fill: white; -fx-font-size: 16; -fx-font-weight: bold;" />
+            <Region HBox.hgrow="ALWAYS" />
+            <Button fx:id="notificationButton" text="通知" style="-fx-background-color: #3498db; -fx-text-fill: white;" />
+            <MenuButton fx:id="settingsMenu" text="菜单" style="-fx-background-color: #34495e; -fx-text-fill: white;" />
+        </HBox>
     </top>
 
     <center>
-        <VBox spacing="15" alignment="TOP_CENTER">
-            <padding>
-                <Insets bottom="20" left="20" right="20" top="20" />
-            </padding>
-
-            <!-- 消息发送区域 -->
-            <VBox spacing="10" style="-fx-padding: 15; -fx-background-color: #f5f5f5; -fx-background-radius: 5;">
-                <Label text="发送消息" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
-
-                <HBox spacing="10" alignment="CENTER_LEFT">
-                    <Label text="目标用户:" style="-fx-font-size: 14px; -fx-min-width: 80;"/>
-                    <TextField fx:id="targetUserField" promptText="请输入接收消息的用户名"
-                               prefWidth="200.0" prefHeight="35.0"/>
-                </HBox>
-
-                <HBox spacing="10" alignment="CENTER_LEFT">
-                    <Label text="消息内容:" style="-fx-font-size: 14px; -fx-min-width: 80;"/>
-                    <TextField fx:id="messageField" promptText="请输入要发送的消息"
-                               prefWidth="300.0" prefHeight="35.0"/>
-                </HBox>
-
-                <HBox spacing="15" alignment="CENTER">
-                    <Button fx:id="sendButton" text="发送消息"
-                            onAction="#sendMessage"
-                            style="-fx-background-color: #0078d4; -fx-text-fill: white; -fx-pref-width: 100px; -fx-pref-height: 35px;"/>
-
-                    <Button fx:id="testButton" text="测试连接"
-                            onAction="#testConnection"
-                            style="-fx-background-color: #28a745; -fx-text-fill: white; -fx-pref-width: 100px; -fx-pref-height: 35px;"/>
-                </HBox>
-            </VBox>
-
-            <!-- 状态显示区域 -->
-            <VBox spacing="5" prefWidth="600.0">
-                <Label text="消息状态:" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
-                <TextArea fx:id="statusArea" prefHeight="200.0" prefWidth="600.0"
-                          editable="false" wrapText="true"
-                          style="-fx-font-family: 'Microsoft YaHei'; -fx-font-size: 12px;"/>
-            </VBox>
-        </VBox>
+        <TabPane fx:id="mainTabPane" tabClosingPolicy="UNAVAILABLE">
+            <Tab fx:id="messagesTab" text="消息">
+                <ListView fx:id="messagesListView" />
+            </Tab>
+            <Tab fx:id="contactsTab" text="联系人">
+                <ListView fx:id="contactsListView" />
+            </Tab>
+            <Tab fx:id="groupsTab" text="群聊">
+                <ListView fx:id="groupsListView" />
+            </Tab>
+        </TabPane>
     </center>
 </BorderPane>
