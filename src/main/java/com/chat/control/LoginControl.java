@@ -187,15 +187,19 @@ public class LoginControl {
         try {
             var fxmlUrl = getClass().getResource("/com/chat/fxml/main.fxml");
             if (fxmlUrl == null) {
-                System.err.println("[FXML] 资源未找到: /com/chat/fxml/main.fxml (请确认资源路径与打包情况)");
+                System.err.println("[FXML] 资源未找到: /com/chat/fxml/main.fxml");
+                System.err.println("[FXML] 当前类路径: " + System.getProperty("java.class.path"));
                 throw new IOException("找不到 main.fxml 资源");
             }
-            System.out.println("[FXML] 加载资源: " + fxmlUrl.toExternalForm());
+            System.out.println("[FXML] 成功找到资源: " + fxmlUrl.toExternalForm());
 
             FXMLLoader loader = new FXMLLoader(fxmlUrl);
             Parent root = loader.load();
+            System.out.println("[FXML] FXML 加载成功");
 
-            MainController controller = loader.getController();
+            MainControl controller = loader.getController();
+            System.out.println("[FXML] 控制器获取: " + (controller != null ? "成功" : "失败"));
+
             controller.setUsername(username);
             controller.setSocketClient(socketClient);
             if (uid != null && !uid.isBlank()) {
@@ -206,11 +210,12 @@ public class LoginControl {
             stage.setTitle("中杯聊天软件 - " + username);
             stage.setScene(new Scene(root, 700, 500));
             stage.show();
+            System.out.println("[FXML] 主窗口显示成功");
+
         } catch (Exception e) {
-            System.err.println("[FXML] 加载 main.fxml 失败: " + e.getMessage());
+            System.err.println("[FXML] 加载 main.fxml 失败: " + e.getClass().getName() + ": " + e.getMessage());
             e.printStackTrace();
-            if (e instanceof IOException io) throw io;
-            throw new IOException("加载主界面失败", e);
+            throw new IOException("加载主界面失败: " + e.getMessage(), e);
         }
     }
 

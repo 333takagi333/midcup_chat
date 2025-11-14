@@ -24,90 +24,215 @@ public class SocketClient {
     private Socket socket;
     private PrintWriter out;
     private BufferedReader in;
+    private Gson gson = new Gson();
 
     /**
-     * 发送登录请求到服务器，并读取首行响应。
-     * @param data 请求数据对象
-     * @return 首行响应字符串，失败或超时返回 null
+     * 建立与服务器的连接
+     * @return 连接是否成功
      */
-    public String sendLoginRequest(Object data) {
+    public boolean connect() {
         try {
+            if (connected) {
+                disconnect(); // 先断开现有连接
+            }
+
             socket = new Socket(SERVER_ADDRESS, SERVER_PORT);
             socket.setSoTimeout(TIMEOUT_MS);
 
             out = new PrintWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8), true);
             in = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
 
+            connected = true;
+            return true;
+
+        } catch (IOException e) {
+            System.err.println("[SOCKET] Connection failed: " + e.getMessage());
+            connected = false;
+            return false;
+        }
+    }
+
+    /**
+     * 发送请求到服务器并获取响应（自动管理连接）
+     * @param data 请求数据对象
+     * @return 服务器响应字符串，失败返回 null
+     */
+    public String sendRequest(Object data) {
+        try {
+            // 确保连接建立
+            if (!connected && !connect()) {
+                return null;
+            }
+
             // 发送请求
-            String json = new Gson().toJson(data);
+            String json = gson.toJson(data);
+            System.out.println("[SOCKET] Sending: " + json);
             out.println(json);
 
             // 读取响应
             String response = in.readLine();
-            connected = true;
+            System.out.println("[SOCKET] Received: " + response);
             return response;
 
         } catch (SocketTimeoutException e) {
+            System.err.println("[SOCKET] Request timeout");
             return null;
         } catch (IOException e) {
+            System.err.println("[SOCKET] Request failed: " + e.getMessage());
+            connected = false; // 标记连接断开
             return null;
         }
     }
 
-    public String sendRegisterRequest(RegisterRequest request) {
-        return sendLoginRequest(request);
-    }
-
-    public String sendResetPasswordRequest(ResetPasswordRequest request) {
-        return sendLoginRequest(request);
-    }
-
+    // ==================== 用户相关请求 ====================
 
     /**
-     * 发送一条消息（要求已建立连接）。
-     * @param data 数据对象
-     * @return true 表示发送成功；否则返回 false
+     * 发送登录请求
+     */
+    public String sendLoginRequest(LoginRequest request) {
+        return sendRequest(request);
+    }
+
+    /**
+     * 发送注册请求
+     */
+    public String sendRegisterRequest(RegisterRequest request) {
+        return sendRequest(request);
+    }
+
+    /**
+     * 发送重置密码请求
+     */
+    public String sendResetPasswordRequest(ResetPasswordRequest request) {
+        return sendRequest(request);
+    }
+
+    /**
+     * 发送用户信息请求
+     */
+    public String sendUserInfoRequest(UserInfoRequest request) {
+        return sendRequest(request);
+    }
+
+    // ==================== 聊天相关请求 ====================
+
+    /**
+     * 发送私聊消息
+     */
+    public boolean sendPrivateMessage(ChatPrivateSend message) {
+        return sendMessage(message);
+    }
+
+    /**
+     * 发送群聊消息
+     */
+    public boolean sendGroupMessage(ChatGroupSend message) {
+        return sendMessage(message);
+    }
+
+    /**
+     * 请求聊天记录
+     */
+    public String sendChatHistoryRequest(ChatHistoryRequest request) {
+        return sendRequest(request);
+    }
+
+    // ==================== 好友系统请求 ====================
+
+    /**
+     * 发送添加好友请求
+     */
+    public String sendFriendAddRequest(FriendAddRequest request) {
+        return sendRequest(request);
+    }
+
+    /**
+     * 发送好友列表请求
+     */
+    public String sendFriendListRequest(FriendListRequest request) {
+        return sendRequest(request);
+    }
+
+    // ==================== 群组系统请求 ====================
+
+    /**
+     * 发送群组列表请求
+     */
+    public String sendGroupListRequest(GroupListRequest request) {
+        return sendRequest(request);
+    }
+
+    // ==================== 通用消息发送 ====================
+
+    /**
+     * 发送一条消息（要求已建立持久连接）
      */
     public boolean sendMessage(Object data) {
         if (!connected || out == null) {
+            System.err.println("[SOCKET] Not connected, cannot send message");
             return false;
         }
         try {
-            String json = new Gson().toJson(data);
-            // 调试输出：查看实际发送的 JSON
-            System.out.println("[SOCKET] Sending: " + json);
+            String json = gson.toJson(data);
+            System.out.println("[SOCKET] Sending message: " + json);
             out.println(json);
             return true;
         } catch (Exception e) {
-            System.out.println("[SOCKET] Send failed: " + e.getMessage());
+            System.err.println("[SOCKET] Send failed: " + e.getMessage());
+            connected = false;
             return false;
         }
     }
 
     /**
-     * 从服务器读取一行消息（非阻塞尝试）。
-     * @return 有可读数据时返回读取到的一行；否则返回 null
+     * 从服务器读取一行消息（非阻塞尝试）
      */
     public String receiveMessage() {
         try {
             if (in != null && in.ready()) {
-                return in.readLine();
+                String message = in.readLine();
+                if (message != null) {
+                    System.out.println("[SOCKET] Received message: " + message);
+                }
+                return message;
             }
         } catch (IOException e) {
-            // 静默失败，返回 null
+            System.err.println("[SOCKET] Receive failed: " + e.getMessage());
+            connected = false;
         }
         return null;
     }
 
     /**
-     * 检查当前是否仍然连接到服务器。
+     * 阻塞等待接收消息（带超时）
      */
-    public boolean isConnected() {
-        return connected && socket != null && !socket.isClosed();
+    public String receiveMessageBlocking() {
+        try {
+            if (in != null) {
+                String message = in.readLine();
+                if (message != null) {
+                    System.out.println("[SOCKET] Received message (blocking): " + message);
+                }
+                return message;
+            }
+        } catch (SocketTimeoutException e) {
+            System.err.println("[SOCKET] Receive timeout");
+        } catch (IOException e) {
+            System.err.println("[SOCKET] Receive failed: " + e.getMessage());
+            connected = false;
+        }
+        return null;
     }
 
     /**
-     * 主动断开与服务器的连接并释放资源。
+     * 检查连接状态
+     */
+    public boolean isConnected() {
+        return connected && socket != null && !socket.isClosed() && socket.isConnected();
+    }
+
+    /**
+     * 断开连接
      */
     public void disconnect() {
         connected = false;
@@ -117,20 +242,63 @@ public class SocketClient {
             if (socket != null) socket.close();
         } catch (IOException e) {
             // 静默关闭
+        } finally {
+            out = null;
+            in = null;
+            socket = null;
+            System.out.println("[SOCKET] Disconnected");
         }
     }
 
     /**
-     * 获取服务器地址（常量）。
+     * 获取服务器地址（常量）
      */
     public String getServerAddress() {
         return SERVER_ADDRESS;
     }
 
     /**
-     * 获取服务器端口（常量）。
+     * 获取服务器端口（常量）
      */
     public int getServerPort() {
         return SERVER_PORT;
     }
+    public String sendRequestWithResponse(Object data, long timeoutMs) {
+        try {
+            if (!connected && !connect()) {
+                return null;
+            }
+
+            // 发送请求
+            String json = gson.toJson(data);
+            System.out.println("[SOCKET] Sending request: " + json);
+            out.println(json);
+
+            // 等待响应
+            long startTime = System.currentTimeMillis();
+            while (System.currentTimeMillis() - startTime < timeoutMs) {
+                String response = receiveMessage();
+                if (response != null && !response.trim().isEmpty()) {
+                    System.out.println("[SOCKET] Received response: " + response);
+                    return response;
+                }
+                try {
+                    Thread.sleep(50); // 短暂休眠避免CPU占用过高
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return null;
+                }
+            }
+
+            System.out.println("[SOCKET] Request timeout after " + timeoutMs + "ms");
+            return null;
+
+        } catch (Exception e) {
+            System.err.println("[SOCKET] Request failed: " + e.getMessage());
+            connected = false;
+            return null;
+        }
+    }
+
+
 }
