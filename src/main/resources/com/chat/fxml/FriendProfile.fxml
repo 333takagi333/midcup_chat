@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox spacing="20" xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.chat.control.FriendProfileControl">
+    <padding><Insets top="20" right="20" bottom="20" left="20"/></padding>
+
+    <VBox spacing="15" alignment="CENTER">
+        <ImageView fx:id="avatarImage" fitWidth="100" fitHeight="100" />
+        <Label fx:id="nameLabel" style="-fx-font-size: 20; -fx-font-weight: bold;" />
+        <Label fx:id="statusLabel" style="-fx-text-fill: #7f8c8d;" />
+        <Label fx:id="userIdLabel" style="-fx-text-fill: #95a5a6;" />
+    </VBox>
+
+    <VBox spacing="10">
+        <Label text="个性签名:" style="-fx-font-weight: bold;" />
+        <Label fx:id="signatureLabel" wrapText="true" />
+    </VBox>
+
+    <HBox spacing="10" alignment="CENTER">
+        <Button text="发送消息" onAction="#sendMessage"
+                style="-fx-background-color: #3498db; -fx-text-fill: white;" />
+        <Button text="删除好友" onAction="#deleteFriend"
+                style="-fx-background-color: #e74c3c; -fx-text-fill: white;" />
+    </HBox>
+</VBox>

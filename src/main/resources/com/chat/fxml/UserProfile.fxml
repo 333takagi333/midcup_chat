@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox spacing="20" xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.chat.control.UserProfileControl">
+    <padding><Insets top="20" right="20" bottom="20" left="20"/></padding>
+
+    <!-- 头像区域 -->
+    <VBox spacing="15" alignment="CENTER">
+        <ImageView fx:id="avatarImage" fitWidth="100" fitHeight="100" />
+        <Button text="修改头像" onAction="#editAvatar" />
+        <Label fx:id="usernameLabel" style="-fx-font-size: 20; -fx-font-weight: bold;" />
+        <Label fx:id="userIdLabel" style="-fx-text-fill: #7f8c8d;" />
+    </VBox>
+
+    <!-- 基本信息区域 -->
+    <VBox spacing="10">
+        <Label text="基本信息" style="-fx-font-weight: bold; -fx-font-size: 16; -fx-text-fill: #2c3e50;" />
+
+        <GridPane hgap="10" vgap="10">
+            <columnConstraints>
+                <ColumnConstraints prefWidth="80" />
+                <ColumnConstraints prefWidth="200" />
+            </columnConstraints>
+
+            <rowConstraints>
+                <RowConstraints prefHeight="30" />
+                <RowConstraints prefHeight="30" />
+                <RowConstraints prefHeight="30" />
+                <RowConstraints prefHeight="30" />
+            </rowConstraints>
+
+            <!-- 性别 -->
+            <Label text="性别:" GridPane.rowIndex="0" GridPane.columnIndex="0" style="-fx-font-weight: bold;" />
+            <Label fx:id="genderLabel" GridPane.rowIndex="0" GridPane.columnIndex="1" />
+
+            <!-- 生日 -->
+            <Label text="生日:" GridPane.rowIndex="1" GridPane.columnIndex="0" style="-fx-font-weight: bold;" />
+            <Label fx:id="birthdayLabel" GridPane.rowIndex="1" GridPane.columnIndex="1" />
+
+            <!-- 电话 -->
+            <Label text="电话:" GridPane.rowIndex="2" GridPane.columnIndex="0" style="-fx-font-weight: bold;" />
+            <Label fx:id="phoneLabel" GridPane.rowIndex="2" GridPane.columnIndex="1" />
+
+            <!-- 状态 -->
+            <Label text="状态:" GridPane.rowIndex="3" GridPane.columnIndex="0" style="-fx-font-weight: bold;" />
+            <Label fx:id="statusLabel" GridPane.rowIndex="3" GridPane.columnIndex="1" />
+        </GridPane>
+    </VBox>
+
+    <!-- 个性签名区域 -->
+    <VBox spacing="10">
+        <Label text="个性签名" style="-fx-font-weight: bold; -fx-font-size: 16; -fx-text-fill: #2c3e50;" />
+        <Label fx:id="signatureLabel" wrapText="true" style="-fx-background-color: #f8f9fa; -fx-padding: 10; -fx-border-color: #e9ecef; -fx-border-radius: 5;" />
+    </VBox>
+
+    <!-- 操作按钮区域 -->
+    <HBox spacing="10" alignment="CENTER">
+        <Button text="保存资料" onAction="#saveProfile"
+                style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold;" />
+        <Button text="编辑资料" onAction="#editProfile"
+                style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold;" />
+    </HBox>
+</VBox>
