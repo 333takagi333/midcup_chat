@@ -67,7 +67,7 @@ public class ChatGroupControl implements Initializable {
             try {
                 groupAvatar.setImage(new Image(getClass().getResourceAsStream(avatarUrl)));
             } catch (Exception e) {
-                groupAvatar.setImage(new Image(getClass().getResourceAsStream("/com/chat/images/default_group.png")));
+                groupAvatar.setImage(new Image(getClass().getResourceAsStream("/com/chat/images/zb.jpg")));
             }
         }
 

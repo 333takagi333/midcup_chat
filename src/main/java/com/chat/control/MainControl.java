@@ -26,6 +26,8 @@ import javafx.stage.Stage;
 
 import java.io.IOException;
 import java.net.URL;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ResourceBundle;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -402,7 +404,7 @@ public class MainControl implements Initializable {
     }
 
     /**
-     * 设置事件处理器
+     * 设置事件处理器 - 修改：双击打开聊天界面
      */
     private void setupEventHandlers() {
         // 消息列表点击事件
@@ -417,19 +419,19 @@ public class MainControl implements Initializable {
             }
         });
 
-        // 联系人列表点击事件
+        // 联系人列表点击事件 - 修改：双击打开私聊
         contactsListView.setOnMouseClicked(event -> {
             FriendItem selected = contactsListView.getSelectionModel().getSelectedItem();
             if (selected != null && event.getClickCount() == 2) {
-                openFriendProfile(selected);
+                openPrivateChatFromContact(selected);
             }
         });
 
-        // 群聊列表点击事件
+        // 群聊列表点击事件 - 修改：双击打开群聊
         groupsListView.setOnMouseClicked(event -> {
             GroupItem selected = groupsListView.getSelectionModel().getSelectedItem();
             if (selected != null && event.getClickCount() == 2) {
-                openGroupDetails(selected);
+                openGroupChatFromGroup(selected);
             }
         });
 
@@ -440,6 +442,115 @@ public class MainControl implements Initializable {
         settingsMenu.getItems().get(0).setOnAction(event -> showUserProfile());
         settingsMenu.getItems().get(1).setOnAction(event -> showSettings());
         settingsMenu.getItems().get(3).setOnAction(event -> logout());
+    }
+
+    /**
+     * 从联系人打开私聊窗口
+     */
+    private void openPrivateChatFromContact(FriendItem friend) {
+        try {
+            System.out.println("[MAIN] 打开与 " + friend.getUsername() + " 的私聊窗口");
+
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/chat/fxml/ChatPrivate.fxml"));
+            Parent root = loader.load();
+
+            ChatPrivateControl controller = loader.getController();
+            controller.setChatInfo(friend.getUserId(), friend.getUsername(), friend.getAvatar(), socketClient, userId);
+
+            Stage stage = new Stage();
+            stage.setTitle("与 " + friend.getUsername() + " 聊天");
+            stage.setScene(new Scene(root, 600, 700));
+            stage.show();
+
+            // 在消息列表中添加或更新该聊天
+            addOrUpdateChatInMessageList(friend.getUserId(), friend.getUsername(), friend.getAvatar(), false);
+
+        } catch (IOException e) {
+            System.err.println("[MAIN] 打开私聊窗口失败: " + e.getMessage());
+            showErrorDialog("打开聊天窗口失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 从群组列表打开群聊窗口
+     */
+    private void openGroupChatFromGroup(GroupItem group) {
+        try {
+            System.out.println("[MAIN] 打开群聊 " + group.getName());
+
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/chat/fxml/ChatGroup.fxml"));
+            Parent root = loader.load();
+
+            ChatGroupControl controller = loader.getController();
+            controller.setGroupInfo(group.getGroupId(), group.getName(), group.getAvatar(), socketClient, userId);
+
+            Stage stage = new Stage();
+            stage.setTitle("群聊: " + group.getName());
+            stage.setScene(new Scene(root, 600, 700));
+            stage.show();
+
+            // 在消息列表中添加或更新该聊天
+            addOrUpdateChatInMessageList(group.getGroupId(), group.getName(), group.getAvatar(), true);
+
+        } catch (IOException e) {
+            System.err.println("[MAIN] 打开群聊窗口失败: " + e.getMessage());
+            showErrorDialog("打开群聊窗口失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 在消息列表中添加或更新聊天项
+     */
+    private void addOrUpdateChatInMessageList(String id, String name, String avatar, boolean isGroup) {
+        Platform.runLater(() -> {
+            ObservableList<ChatItem> items = messagesListView.getItems();
+            boolean found = false;
+            int foundIndex = -1;
+
+            // 查找是否已存在该聊天
+            for (int i = 0; i < items.size(); i++) {
+                ChatItem item = items.get(i);
+                if (item.getId().equals(id) && item.isGroup() == isGroup) {
+                    found = true;
+                    foundIndex = i;
+                    break;
+                }
+            }
+
+            String currentTime = getCurrentTime();
+
+            if (found) {
+                // 更新现有聊天项 - 移到顶部
+                ChatItem existingItem = items.get(foundIndex);
+                items.remove(foundIndex);
+                items.add(0, new ChatItem(
+                        existingItem.getId(),
+                        existingItem.getName(),
+                        "已打开聊天",
+                        currentTime,
+                        existingItem.getAvatar(),
+                        false, // 清除未读状态
+                        isGroup
+                ));
+            } else {
+                // 如果是新聊天，添加到列表顶部
+                String displayName = name != null ? name : (isGroup ? "群聊" + id : "用户" + id);
+                String avatarUrl = avatar != null ? avatar : "";
+                ChatItem newItem = new ChatItem(id, displayName, "已打开聊天", currentTime, avatarUrl, false, isGroup);
+                items.add(0, newItem);
+            }
+
+            // 强制刷新列表视图
+            messagesListView.refresh();
+            System.out.println("[MAIN] 消息列表更新: " + name);
+        });
+    }
+
+    /**
+     * 获取当前时间格式
+     */
+    private String getCurrentTime() {
+        return LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
     }
 
     /**
@@ -479,46 +590,6 @@ public class MainControl implements Initializable {
             stage.show();
         } catch (IOException e) {
             showErrorDialog("打开群聊窗口失败: " + e.getMessage());
-        }
-    }
-
-    /**
-     * 打开好友资料
-     */
-    private void openFriendProfile(FriendItem friend) {
-        try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/chat/fxml/FriendProfile.fxml"));
-            Parent root = loader.load();
-
-            FriendProfileControl controller = loader.getController();
-            controller.setFriendInfo(friend);
-
-            Stage stage = new Stage();
-            stage.setTitle(friend.getUsername() + " 的资料");
-            stage.setScene(new Scene(root, 400, 500));
-            stage.show();
-        } catch (IOException e) {
-            showErrorDialog("打开好友资料失败: " + e.getMessage());
-        }
-    }
-
-    /**
-     * 打开群聊详情
-     */
-    private void openGroupDetails(GroupItem group) {
-        try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/chat/fxml/GroupDetails.fxml"));
-            Parent root = loader.load();
-
-            GroupDetailsControl controller = loader.getController();
-            controller.setGroupInfo(group);
-
-            Stage stage = new Stage();
-            stage.setTitle(group.getName() + " 的详情");
-            stage.setScene(new Scene(root, 500, 600));
-            stage.show();
-        } catch (IOException e) {
-            showErrorDialog("打开群聊详情失败: " + e.getMessage());
         }
     }
 
@@ -630,12 +701,18 @@ public class MainControl implements Initializable {
      */
     private void handleFriendListResponse(String response) {
         try {
+            System.out.println("[MAIN] 开始处理好友列表响应: " + response);
+
             FriendListResponse friendResponse = gson.fromJson(response, FriendListResponse.class);
             if (friendResponse != null && friendResponse.getFriends() != null) {
+                System.out.println("[MAIN] 好友列表数据: " + friendResponse.getFriends().size() + " 个好友");
+                for (FriendListResponse.FriendItem friend : friendResponse.getFriends()) {
+                    System.out.println("[MAIN] 好友: " + friend.getUsername() + " (UID: " + friend.getUid() + ")");
+                }
                 updateFriendList(friendResponse.getFriends());
-                System.out.println("[MAIN] 好友列表更新，数量: " + friendResponse.getFriends().size());
+                System.out.println("[MAIN] 好友列表更新完成，数量: " + friendResponse.getFriends().size());
             } else {
-                System.err.println("[MAIN] 好友列表响应为空");
+                System.err.println("[MAIN] 好友列表响应为空或friends为null");
             }
         } catch (Exception e) {
             System.err.println("解析好友列表响应失败: " + e.getMessage());
@@ -648,12 +725,18 @@ public class MainControl implements Initializable {
      */
     private void handleGroupListResponse(String response) {
         try {
+            System.out.println("[MAIN] 开始处理群组列表响应: " + response);
+
             GroupListResponse groupResponse = gson.fromJson(response, GroupListResponse.class);
             if (groupResponse != null && groupResponse.getGroups() != null) {
+                System.out.println("[MAIN] 群组列表数据: " + groupResponse.getGroups().size() + " 个群组");
+                for (GroupListResponse.GroupItem group : groupResponse.getGroups()) {
+                    System.out.println("[MAIN] 群组: " + group.getName() + " (ID: " + group.getId() + ")");
+                }
                 updateGroupList(groupResponse.getGroups());
-                System.out.println("[MAIN] 群组列表更新，数量: " + groupResponse.getGroups().size());
+                System.out.println("[MAIN] 群组列表更新完成，数量: " + groupResponse.getGroups().size());
             } else {
-                System.err.println("[MAIN] 群组列表响应为空");
+                System.err.println("[MAIN] 群组列表响应为空或groups为null");
             }
         } catch (Exception e) {
             System.err.println("解析群组列表响应失败: " + e.getMessage());
@@ -728,40 +811,50 @@ public class MainControl implements Initializable {
      * 更新好友列表显示 - 适配新的协议字段
      */
     private void updateFriendList(java.util.List<FriendListResponse.FriendItem> friends) {
+        System.out.println("[UI] 开始更新好友列表UI，数据数量: " + (friends != null ? friends.size() : 0));
+
         ObservableList<FriendItem> items = FXCollections.observableArrayList();
         if (friends != null) {
             for (FriendListResponse.FriendItem friend : friends) {
-                // 使用服务端提供的字段
-                items.add(new FriendItem(
+                FriendItem item = new FriendItem(
                         friend.getUid() != null ? friend.getUid().toString() : "0",
                         friend.getUsername() != null ? friend.getUsername() : "未知用户",
-                        "在线", // 状态信息需要服务端提供
-                        friend.getAvatarUrl(), // 直接使用服务端提供的头像URL
-                        "" // 签名信息需要服务端提供
-                ));
+                        "在线",
+                        friend.getAvatarUrl(),
+                        ""
+                );
+                items.add(item);
+                System.out.println("[UI] 添加好友项: " + item.getUsername());
             }
         }
+
         contactsListView.setItems(items);
+        System.out.println("[UI] 好友列表UI更新完成，列表项数: " + contactsListView.getItems().size());
     }
 
     /**
      * 更新群组列表显示 - 适配新的协议字段
      */
     private void updateGroupList(java.util.List<GroupListResponse.GroupItem> groups) {
+        System.out.println("[UI] 开始更新群组列表UI，数据数量: " + (groups != null ? groups.size() : 0));
+
         ObservableList<GroupItem> items = FXCollections.observableArrayList();
         if (groups != null) {
             for (GroupListResponse.GroupItem group : groups) {
-                // 使用服务端提供的字段
-                items.add(new GroupItem(
+                GroupItem item = new GroupItem(
                         group.getId() != null ? group.getId().toString() : "0",
                         group.getName() != null ? group.getName() : "未知群组",
-                        "暂无消息", // 最后消息需要服务端提供
-                        "0", // 成员数量需要服务端提供
-                        group.getAvatar() // 直接使用服务端提供的头像URL
-                ));
+                        "暂无消息",
+                        "0",
+                        group.getAvatar()
+                );
+                items.add(item);
+                System.out.println("[UI] 添加群组项: " + item.getName());
             }
         }
+
         groupsListView.setItems(items);
+        System.out.println("[UI] 群组列表UI更新完成，列表项数: " + groupsListView.getItems().size());
     }
 
     /**
@@ -793,8 +886,13 @@ public class MainControl implements Initializable {
     public void loadFriendsFromServer() {
         if (socketClient != null && socketClient.isConnected()) {
             FriendListRequest request = new FriendListRequest();
-            socketClient.sendFriendListRequest(request);
-            System.out.println("[MAIN] 发送好友列表请求");
+            String response = socketClient.sendRequest(request);  // 使用 sendRequest
+            System.out.println("[MAIN] 发送好友列表请求，响应: " + response);
+
+            // 直接处理响应，不依赖消息监听器
+            if (response != null) {
+                Platform.runLater(() -> handleFriendListResponse(response));
+            }
         } else {
             showErrorDialog("未连接到服务器");
         }
@@ -806,8 +904,13 @@ public class MainControl implements Initializable {
     public void loadGroupsFromServer() {
         if (socketClient != null && socketClient.isConnected()) {
             GroupListRequest request = new GroupListRequest();
-            socketClient.sendGroupListRequest(request);
-            System.out.println("[MAIN] 发送群组列表请求");
+            String response = socketClient.sendRequest(request);  // 使用 sendRequest
+            System.out.println("[MAIN] 发送群组列表请求，响应: " + response);
+
+            // 直接处理响应，不依赖消息监听器
+            if (response != null) {
+                Platform.runLater(() -> handleGroupListResponse(response));
+            }
         } else {
             showErrorDialog("未连接到服务器");
         }
@@ -828,11 +931,22 @@ public class MainControl implements Initializable {
     public void loadInitialData() {
         if (dataLoaded) return;
 
+        System.out.println("[MAIN] === 开始加载初始数据 ===");
+        System.out.println("[MAIN] 当前用户ID: " + userId);
+        System.out.println("[MAIN] SocketClient状态: " + (socketClient != null ? "已设置" : "未设置"));
+        System.out.println("[MAIN] SocketClient连接状态: " + (socketClient != null ? socketClient.isConnected() : "null"));
+
         clearAllData();
-        loadFriendsFromServer();
-        loadGroupsFromServer();
-        dataLoaded = true;
-        System.out.println("[MAIN] 初始数据加载完成");
+
+        if (socketClient != null && socketClient.isConnected()) {
+            loadFriendsFromServer();
+            loadGroupsFromServer();
+            dataLoaded = true;
+            System.out.println("[MAIN] 初始数据加载请求已发送");
+        } else {
+            System.err.println("[MAIN] SocketClient未连接，无法加载数据");
+            showErrorDialog("未连接到服务器，无法加载数据");
+        }
     }
 
     // 安全的对话框显示方法
