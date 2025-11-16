@@ -5,11 +5,10 @@ import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
 import javafx.scene.image.ImageView;
 import javafx.scene.paint.Color;
+import java.util.Objects;
 
 /**
  * AvatarHelper - 头像处理工具
- * - 将头像相关的默认图和加载逻辑集中在此，便于复用与测试
- * - 目前远程加载为占位实现（后续可扩展为 HTTP 下载并缓存）
  */
 public final class AvatarHelper {
 
@@ -23,17 +22,50 @@ public final class AvatarHelper {
     public static void loadAvatar(ImageView imageView, String avatarUrl, boolean isGroup, int size) {
         if (imageView == null) return;
         if (avatarUrl != null && !avatarUrl.trim().isEmpty()) {
-            // placeholder for remote loading
-            loadRemoteAvatar(avatarUrl, imageView, isGroup, size);
+            // 加载本地资源图片
+            loadLocalAvatar(avatarUrl, imageView, isGroup, size);
         } else {
             setDefaultAvatar(imageView, isGroup, size);
         }
     }
 
+    /**
+     * 加载本地资源图片
+     */
+    public static void loadLocalAvatar(String avatarFileName, ImageView imageView, boolean isGroup, int size) {
+        try {
+            // 构建资源路径
+            String resourcePath = "/com/chat/images/" + avatarFileName;
+            System.out.println("[AvatarHelper] 加载本地头像: " + resourcePath);
+
+            // 从资源文件夹加载图片
+            Image image = new Image(Objects.requireNonNull(
+                    AvatarHelper.class.getResourceAsStream(resourcePath)
+            ), size, size, true, true);
+
+            imageView.setImage(image);
+            imageView.setFitWidth(size);
+            imageView.setFitHeight(size);
+            imageView.setPreserveRatio(true);
+
+        } catch (Exception e) {
+            System.err.println("[AvatarHelper] 加载本地头像失败: " + avatarFileName + ", 错误: " + e.getMessage());
+            // 回退到默认头像
+            setDefaultAvatar(imageView, isGroup, size);
+        }
+    }
+
+    /**
+     * 加载远程头像（占位实现）
+     */
     public static void loadRemoteAvatar(String avatarUrl, ImageView imageView, boolean isGroup, int size) {
-        // TODO: 实现真正的远程下载 + 缓存。当前占位实现使用默认头像。
-        System.out.println("[AvatarHelper] (placeholder) load remote avatar: " + avatarUrl);
-        setDefaultAvatar(imageView, isGroup, size);
+        // 如果是简单的文件名，尝试作为本地资源加载
+        if (avatarUrl != null && !avatarUrl.contains("/") && !avatarUrl.contains("http")) {
+            loadLocalAvatar(avatarUrl, imageView, isGroup, size);
+        } else {
+            System.out.println("[AvatarHelper] (placeholder) load remote avatar: " + avatarUrl);
+            setDefaultAvatar(imageView, isGroup, size);
+        }
     }
 
     public static void setDefaultAvatar(ImageView imageView, boolean isGroup) {
@@ -76,4 +108,3 @@ public final class AvatarHelper {
         return image;
     }
 }
-

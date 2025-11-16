@@ -3,6 +3,11 @@ package com.chat.service;
 import com.chat.model.ChatItem;
 import com.chat.model.FriendItem;
 import com.chat.model.GroupItem;
+import com.chat.network.SocketClient;
+import com.chat.protocol.ChatGroupReceive;
+import com.chat.protocol.ChatPrivateReceive;
+import com.chat.protocol.FriendListResponse;
+import com.chat.protocol.GroupListResponse;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 
@@ -30,10 +35,66 @@ public class ChatStateService {
         return groupItems;
     }
 
-    public void updateFriendList(List<com.chat.protocol.FriendListResponse.FriendItem> friends) {
+    /**
+     * 从服务器加载好友列表并更新
+     */
+    public void loadFriendsFromServer(SocketClient client, FriendService friendService) {
+        if (client == null || !client.isConnected()) return;
+
+        List<FriendItem> friends = friendService.loadFriends(client);
+        if (friends != null) {
+            friendItems.setAll(friends);
+        }
+    }
+
+    /**
+     * 从服务器加载群组列表并更新
+     */
+    public void loadGroupsFromServer(SocketClient client, GroupService groupService) {
+        if (client == null || !client.isConnected()) return;
+
+        List<GroupItem> groups = groupService.loadGroups(client);
+        if (groups != null) {
+            groupItems.setAll(groups);
+        }
+    }
+
+    /**
+     * 处理私聊消息
+     */
+    public void handlePrivateMessage(ChatPrivateReceive message) {
+        if (message != null) {
+            upsertChat(
+                    message.getFromUserId().toString(),
+                    null,
+                    null,
+                    message.getContent(),
+                    true,
+                    false
+            );
+        }
+    }
+
+    /**
+     * 处理群聊消息
+     */
+    public void handleGroupMessage(ChatGroupReceive message) {
+        if (message != null) {
+            upsertChat(
+                    message.getGroupId().toString(),
+                    null,
+                    null,
+                    message.getContent(),
+                    true,
+                    true
+            );
+        }
+    }
+
+    public void updateFriendList(List<FriendListResponse.FriendItem> friends) {
         friendItems.clear();
         if (friends != null) {
-            for (com.chat.protocol.FriendListResponse.FriendItem friend : friends) {
+            for (FriendListResponse.FriendItem friend : friends) {
                 friendItems.add(new FriendItem(
                         friend.getUid() != null ? friend.getUid().toString() : "0",
                         friend.getUsername() != null ? friend.getUsername() : "未知用户",
@@ -45,10 +106,10 @@ public class ChatStateService {
         }
     }
 
-    public void updateGroupList(List<com.chat.protocol.GroupListResponse.GroupItem> groups) {
+    public void updateGroupList(List<GroupListResponse.GroupItem> groups) {
         groupItems.clear();
         if (groups != null) {
-            for (com.chat.protocol.GroupListResponse.GroupItem group : groups) {
+            for (GroupListResponse.GroupItem group : groups) {
                 groupItems.add(new GroupItem(
                         group.getId() != null ? group.getId().toString() : "0",
                         group.getName() != null ? group.getName() : "未知群组",
@@ -91,4 +152,3 @@ public class ChatStateService {
         groupItems.clear();
     }
 }
-
