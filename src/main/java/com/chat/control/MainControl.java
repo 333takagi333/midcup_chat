@@ -58,21 +58,33 @@ public class MainControl implements Initializable {
     // message handlers registry
     private final Map<String, java.util.function.Consumer<String>> messageHandlers = new HashMap<>();
 
+    /**
+     * 检查是否连接到服务器。
+     */
     private boolean isConnected() {
         return socketClient != null && socketClient.isConnected();
     }
 
+    /**
+     * 在UI线程上运行指定的Runnable，如果当前不在UI线程则使用Platform.runLater。
+     */
     private void runOnUi(Runnable r) {
         if (Platform.isFxApplicationThread()) r.run();
         else Platform.runLater(r);
     }
 
+    /**
+     * 如果数据未加载且用户名和连接就绪，则尝试加载初始数据。
+     */
     private void tryLoadInitialDataIfReady() {
         if (!dataLoaded && username != null && isConnected()) {
             loadInitialData();
         }
     }
 
+    /**
+     * 初始化控制器，设置UI、事件处理器和消息处理器。
+     */
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         setupUI();
@@ -86,7 +98,7 @@ public class MainControl implements Initializable {
     }
 
     /**
-     * 初始化UI组件
+     * 初始化UI组件，包括设置列表视图和清除数据。
      */
     private void setupUI() {
         try {
@@ -97,16 +109,25 @@ public class MainControl implements Initializable {
         }
     }
 
+    /**
+     * 设置消息列表、联系人列表和群组列表的单元格工厂。
+     */
     private void setupListViews() {
         messagesListView.setCellFactory(CellFactoryHelper.chatCellFactory());
         contactsListView.setCellFactory(CellFactoryHelper.friendCellFactory());
         groupsListView.setCellFactory(CellFactoryHelper.groupCellFactory());
     }
 
+    /**
+     * 加载用户头像。
+     */
     private void loadUserAvatar() {
         AvatarHelper.loadAvatar(avatarImage, null, false);
     }
 
+    /**
+     * 设置事件处理器，包括列表视图的双击事件和通知按钮。
+     */
     private void setupEventHandlers() {
         messagesListView.setOnMouseClicked(event -> {
             ChatItem selected = messagesListView.getSelectionModel().getSelectedItem();
@@ -129,7 +150,9 @@ public class MainControl implements Initializable {
         notificationButton.setOnAction(event -> showNotifications());
     }
 
-    // New helper: generic window opener to reduce duplicated code
+    /**
+     * 通用窗口打开器，用于减少重复代码，加载FXML并设置控制器。
+     */
     private void openWindow(String fxmlPath, Consumer<Object> controllerSetup, String title, int width, int height) {
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource(fxmlPath));
@@ -147,6 +170,9 @@ public class MainControl implements Initializable {
         }
     }
 
+    /**
+     * 从联系人列表打开私聊窗口，并更新聊天列表。
+     */
     private void openPrivateChatFromContact(FriendItem friend) {
         openWindow("/com/chat/fxml/ChatPrivate.fxml", controller -> {
             ChatPrivateControl c = (ChatPrivateControl) controller;
@@ -156,6 +182,9 @@ public class MainControl implements Initializable {
         upsertChat(friend.getUserId(), friend.getUsername(), friend.getAvatarUrl(), "已打开聊天", false, false);
     }
 
+    /**
+     * 从群组列表打开群聊窗口，并更新聊天列表。
+     */
     private void openGroupChatFromGroup(GroupItem group) {
         openWindow("/com/chat/fxml/ChatGroup.fxml", controller -> {
             ChatGroupControl c = (ChatGroupControl) controller;
@@ -165,7 +194,9 @@ public class MainControl implements Initializable {
         upsertChat(group.getGroupId(), group.getName(), group.getAvatarUrl(), "已打开聊天", false, true);
     }
 
-    // Reusable request sender to reduce duplication
+    /**
+     * 发送请求到服务器，并处理响应。
+     */
     private void sendRequest(Object request, java.util.function.Consumer<String> onResponse) {
         if (isConnected()) {
             String response = socketClient.sendRequest(request);
@@ -175,15 +206,23 @@ public class MainControl implements Initializable {
         }
     }
 
+    /**
+     * 从服务器加载好友列表。
+     */
     public void loadFriendsFromServer() {
         sendRequest(new FriendListRequest(), this::handleFriendListResponse);
     }
 
+    /**
+     * 从服务器加载群组列表。
+     */
     public void loadGroupsFromServer() {
         sendRequest(new GroupListRequest(), this::handleGroupListResponse);
     }
 
-    // Replaces addOrUpdateChatInMessageList and updateChatListWithNewMessage with a single helper
+    /**
+     * 更新或插入聊天项到消息列表中。
+     */
     private void upsertChat(String id, String name, String avatar, String lastMessage, boolean unread, boolean isGroup) {
         runOnUi(() -> {
             ObservableList<ChatItem> items = messagesListView.getItems();
@@ -215,10 +254,16 @@ public class MainControl implements Initializable {
         });
     }
 
+    /**
+     * 获取当前时间的字符串表示，格式为HH:mm。
+     */
     private String getCurrentTime() {
         return LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
     }
 
+    /**
+     * 打开私聊窗口。
+     */
     private void openPrivateChat(ChatItem chat) {
         openWindow("/com/chat/fxml/ChatPrivate.fxml", controller -> {
             ChatPrivateControl c = (ChatPrivateControl) controller;
@@ -226,6 +271,9 @@ public class MainControl implements Initializable {
         }, "与 " + chat.getName() + " 聊天", 600, 700);
     }
 
+    /**
+     * 打开群聊窗口。
+     */
     private void openGroupChat(ChatItem chat) {
         openWindow("/com/chat/fxml/ChatGroup.fxml", controller -> {
             ChatGroupControl c = (ChatGroupControl) controller;
@@ -233,11 +281,17 @@ public class MainControl implements Initializable {
         }, "群聊: " + chat.getName(), 600, 700);
     }
 
+    /**
+     * 显示通知对话框。
+     */
     @FXML
     private void showNotifications() {
         DialogHelper.showInfo(mainContainer.getScene().getWindow(), "暂无新通知");
     }
 
+    /**
+     * 显示用户资料窗口。
+     */
     @FXML
     private void showUserProfile() {
         openWindow("/com/chat/fxml/UserProfile.fxml", controller -> {
@@ -246,11 +300,17 @@ public class MainControl implements Initializable {
         }, "个人资料", 400, 500);
     }
 
+    /**
+     * 显示设置对话框。
+     */
     @FXML
     private void showSettings() {
         DialogHelper.showInfo(mainContainer.getScene().getWindow(), "设置功能开发中...");
     }
 
+    /**
+     * 退出登录，停止消息监听并关闭窗口。
+     */
     @FXML
     private void logout() {
         if (DialogHelper.showConfirmation(mainContainer.getScene() != null ? mainContainer.getScene().getWindow() : null, "确认退出登录？")) {
@@ -261,6 +321,9 @@ public class MainControl implements Initializable {
         }
     }
 
+    /**
+     * 启动消息监听器，定期检查服务器消息。
+     */
     private void startMessageListener() {
         messageTimer = new Timer(true);
         messageTimer.scheduleAtFixedRate(new TimerTask() {
@@ -274,6 +337,9 @@ public class MainControl implements Initializable {
         }, 0, 100);
     }
 
+    /**
+     * 停止消息监听器。
+     */
     private void stopMessageListener() {
         if (messageTimer != null) {
             messageTimer.cancel();
@@ -281,6 +347,9 @@ public class MainControl implements Initializable {
         }
     }
 
+    /**
+     * 注册消息处理器，将消息类型映射到处理方法。
+     */
     private void registerMessageHandlers() {
         messageHandlers.put("friend_list_response", this::handleFriendListResponse);
         messageHandlers.put("group_list_response", this::handleGroupListResponse);
@@ -290,6 +359,9 @@ public class MainControl implements Initializable {
         messageHandlers.put("friend_add_response", this::handleFriendAddResponse);
     }
 
+    /**
+     * 处理从服务器接收到的消息，根据类型调用相应的处理器。
+     */
     private void handleServerMessage(String message) {
         try {
             JsonObject obj = gson.fromJson(message, JsonObject.class);
@@ -303,6 +375,9 @@ public class MainControl implements Initializable {
         }
     }
 
+    /**
+     * 处理好友列表响应，更新好友列表。
+     */
     private void handleFriendListResponse(String response) {
         try {
             FriendListResponse friendResponse = gson.fromJson(response, FriendListResponse.class);
@@ -312,6 +387,9 @@ public class MainControl implements Initializable {
         }
     }
 
+    /**
+     * 处理群组列表响应，更新群组列表。
+     */
     private void handleGroupListResponse(String response) {
         try {
             GroupListResponse groupResponse = gson.fromJson(response, GroupListResponse.class);
@@ -321,6 +399,9 @@ public class MainControl implements Initializable {
         }
     }
 
+    /**
+     * 处理用户资料响应，目前为空操作，可用于未来解析头像。
+     */
     private void handleUserProfileResponse(String response) {
         try {
             // currently no-op; can parse avatar in future and call loadUserAvatar/loadRemoteAvatar
@@ -329,6 +410,9 @@ public class MainControl implements Initializable {
         }
     }
 
+    /**
+     * 处理私聊消息，更新聊天列表。
+     */
     private void handlePrivateMessage(String messageJson) {
         try {
             ChatPrivateReceive message = gson.fromJson(messageJson, ChatPrivateReceive.class);
@@ -338,6 +422,9 @@ public class MainControl implements Initializable {
         }
     }
 
+    /**
+     * 处理群聊消息，更新聊天列表。
+     */
     private void handleGroupMessage(String messageJson) {
         try {
             ChatGroupReceive message = gson.fromJson(messageJson, ChatGroupReceive.class);
@@ -347,6 +434,9 @@ public class MainControl implements Initializable {
         }
     }
 
+    /**
+     * 处理好友添加响应，显示结果并重新加载好友列表。
+     */
     private void handleFriendAddResponse(String messageJson) {
         try {
             FriendAddResponse response = gson.fromJson(messageJson, FriendAddResponse.class);
@@ -361,6 +451,9 @@ public class MainControl implements Initializable {
         }
     }
 
+    /**
+     * 更新好友列表视图。
+     */
     private void updateFriendList(java.util.List<FriendListResponse.FriendItem> friends) {
         ObservableList<FriendItem> items = FXCollections.observableArrayList();
         if (friends != null) {
@@ -378,6 +471,9 @@ public class MainControl implements Initializable {
         contactsListView.setItems(items);
     }
 
+    /**
+     * 更新群组列表视图。
+     */
     private void updateGroupList(java.util.List<GroupListResponse.GroupItem> groups) {
         ObservableList<GroupItem> items = FXCollections.observableArrayList();
         if (groups != null) {
@@ -395,8 +491,9 @@ public class MainControl implements Initializable {
         groupsListView.setItems(items);
     }
 
-
-
+    /**
+     * 设置Socket客户端，并尝试加载用户头像和初始数据。
+     */
     public void setSocketClient(SocketClient socketClient) {
         this.socketClient = socketClient;
         if (this.userId != null && !this.userId.isEmpty() && isConnected()) {
@@ -405,12 +502,18 @@ public class MainControl implements Initializable {
         runOnUi(this::tryLoadInitialDataIfReady);
     }
 
+    /**
+     * 设置用户名，并更新UI标签。
+     */
     public void setUsername(String username) {
         this.username = username;
         if (usernameLabel != null) usernameLabel.setText(username);
         runOnUi(this::tryLoadInitialDataIfReady);
     }
 
+    /**
+     * 设置用户ID，如果连接则加载头像。
+     */
     public void setUserId(String userId) {
         if (userId == null) return;
         if (!userId.equals(this.userId)) {
@@ -421,12 +524,18 @@ public class MainControl implements Initializable {
         }
     }
 
+    /**
+     * 清除所有数据列表。
+     */
     private void clearAllData() {
         messagesListView.setItems(FXCollections.observableArrayList());
         contactsListView.setItems(FXCollections.observableArrayList());
         groupsListView.setItems(FXCollections.observableArrayList());
     }
 
+    /**
+     * 加载初始数据，包括好友和群组列表。
+     */
     public void loadInitialData() {
         if (dataLoaded) return;
         clearAllData();
