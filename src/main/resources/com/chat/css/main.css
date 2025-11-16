@@ -1,0 +1,28 @@
+/*!* Main UI styles moved from FXML/inline styles *!*/
+/*.top-bar {*/
+/*    -fx-background-color: #2c3e50;*/
+/*    -fx-padding: 10;*/
+/*    -fx-alignment: center-left;*/
+/*    -fx-spacing: 15;*/
+/*}*/
+
+/*.username-label {*/
+/*    -fx-text-fill: white;*/
+/*    -fx-font-size: 16px;*/
+/*    -fx-font-weight: bold;*/
+/*}*/
+
+/*.notification-button {*/
+/*    -fx-background-color: #3498db;*/
+/*    -fx-text-fill: white;*/
+/*}*/
+
+/*.settings-menu {*/
+/*    -fx-background-color: #34495e;*/
+/*    -fx-text-fill: white;*/
+/*}*/
+
+/*.list-placeholder {*/
+/*    -fx-text-fill: #999999;*/
+/*}*/
+

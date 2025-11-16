@@ -1,12 +1,13 @@
 package com.chat.control;
 
-import com.chat.control.MainControl.FriendItem;
+import com.chat.model.FriendItem;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 
+import java.io.InputStream;
 import java.net.URL;
 import java.util.ResourceBundle;
 
@@ -44,12 +45,20 @@ public class FriendProfileControl implements Initializable {
             signatureLabel.setText("个性签名: " +
                     (friend.getSignature() != null ? friend.getSignature() : "这个用户很懒，什么都没有写"));
 
-            // 设置头像
-            if (friend.getAvatar() != null && !friend.getAvatar().isEmpty()) {
+            // 设置头像: use avatarUrl from model, but check stream is not null
+            String avatarPath = friend.getAvatarUrl();
+            InputStream is = null;
+            if (avatarPath != null && !avatarPath.isEmpty()) {
+                is = getClass().getResourceAsStream(avatarPath);
+            }
+            if (is == null) {
+                is = getClass().getResourceAsStream("/com/chat/images/default_avatar.png");
+            }
+            if (is != null) {
                 try {
-                    avatarImage.setImage(new Image(getClass().getResourceAsStream(friend.getAvatar())));
+                    avatarImage.setImage(new Image(is));
                 } catch (Exception e) {
-                    avatarImage.setImage(new Image(getClass().getResourceAsStream("/com/chat/images/default_avatar.png")));
+                    // fallback: nothing
                 }
             }
         }

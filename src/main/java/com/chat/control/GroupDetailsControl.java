@@ -1,6 +1,6 @@
 package com.chat.control;
 
-import com.chat.control.MainControl.GroupItem;
+import com.chat.model.GroupItem;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.Label;
@@ -8,6 +8,7 @@ import javafx.scene.control.ListView;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 
+import java.io.InputStream;
 import java.net.URL;
 import java.util.ResourceBundle;
 
@@ -45,12 +46,20 @@ public class GroupDetailsControl implements Initializable {
             groupNameLabel.setText(group.getName());
             memberCountLabel.setText("成员数量: " + group.getMemberCount());
 
-            // 设置群头像
-            if (group.getAvatar() != null && !group.getAvatar().isEmpty()) {
+            // 设置群头像，先检查资源流
+            String avatarPath = group.getAvatarUrl();
+            InputStream is = null;
+            if (avatarPath != null && !avatarPath.isEmpty()) {
+                is = getClass().getResourceAsStream(avatarPath);
+            }
+            if (is == null) {
+                is = getClass().getResourceAsStream("/com/chat/images/default_group.png");
+            }
+            if (is != null) {
                 try {
-                    groupAvatar.setImage(new Image(getClass().getResourceAsStream(group.getAvatar())));
+                    groupAvatar.setImage(new Image(is));
                 } catch (Exception e) {
-                    groupAvatar.setImage(new Image(getClass().getResourceAsStream("/com/chat/images/default_group.png")));
+                    // fallback: ignore
                 }
             }
 

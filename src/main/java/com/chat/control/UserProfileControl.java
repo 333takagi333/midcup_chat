@@ -3,17 +3,14 @@ package com.chat.control;
 import com.chat.network.SocketClient;
 import com.chat.protocol.UserInfoRequest;
 import com.chat.protocol.UserInfoResponse;
+import com.chat.ui.AvatarHelper;
 import com.chat.ui.DialogUtil;
 import com.google.gson.Gson;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.Label;
-import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.scene.image.PixelWriter;
-import javafx.scene.image.WritableImage;
-import javafx.scene.paint.Color;
 
 import java.net.URL;
 import java.util.ResourceBundle;
@@ -39,8 +36,8 @@ public class UserProfileControl implements Initializable {
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        // 初始化时可以设置一些默认值
-        setDefaultAvatar();
+        // 初始化时使用统一的默认头像（更大的尺寸用于个人资料）
+        AvatarHelper.setDefaultAvatar(avatarImage, false, 100);
     }
 
     /**
@@ -67,62 +64,8 @@ public class UserProfileControl implements Initializable {
         birthdayLabel.setText("未设置");
         phoneLabel.setText("未设置");
 
-        // 使用默认头像，不再尝试加载本地文件
-        setDefaultAvatar();
-    }
-
-    /**
-     * 设置默认头像
-     */
-    private void setDefaultAvatar() {
-        avatarImage.setImage(createDefaultAvatar());
-        avatarImage.setFitWidth(100);
-        avatarImage.setFitHeight(100);
-    }
-
-    /**
-     * 创建默认头像（程序生成）
-     */
-    private Image createDefaultAvatar() {
-        int width = 100;
-        int height = 100;
-        WritableImage image = new WritableImage(width, height);
-        PixelWriter pixelWriter = image.getPixelWriter();
-
-        // 根据用户名生成不同的颜色
-        Color baseColor = generateColorFromUsername();
-
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                double dx = x - width / 2.0;
-                double dy = y - height / 2.0;
-                double distance = Math.sqrt(dx * dx + dy * dy);
-
-                if (distance <= width / 2.0) {
-                    pixelWriter.setColor(x, y, baseColor);
-                } else {
-                    pixelWriter.setColor(x, y, Color.TRANSPARENT);
-                }
-            }
-        }
-        return image;
-    }
-
-    /**
-     * 根据用户名生成颜色
-     */
-    private Color generateColorFromUsername() {
-        if (username == null || username.isEmpty()) {
-            return Color.BLUE;
-        }
-
-        // 使用用户名哈希值生成颜色
-        int hash = username.hashCode();
-        double hue = (hash & 0xFF) / 255.0 * 360;
-        double saturation = 0.7 + ((hash >> 8) & 0xFF) / 255.0 * 0.3;
-        double brightness = 0.6 + ((hash >> 16) & 0xFF) / 255.0 * 0.4;
-
-        return Color.hsb(hue, saturation, brightness);
+        // 使用统一的默认头像
+        AvatarHelper.setDefaultAvatar(avatarImage, false, 100);
     }
 
     /**
@@ -197,7 +140,7 @@ public class UserProfileControl implements Initializable {
 
                 // 更新头像
                 if (response.getAvatarUrl() != null && !response.getAvatarUrl().isEmpty()) {
-                    loadAvatarFromServer(response.getAvatarUrl());
+                    AvatarHelper.loadAvatar(avatarImage, response.getAvatarUrl(), false, 100);
                 }
             });
         }
@@ -217,17 +160,6 @@ public class UserProfileControl implements Initializable {
         }
     }
 
-    /**
-     * 从服务端加载头像
-     */
-    private void loadAvatarFromServer(String avatarUrl) {
-        if (avatarUrl != null && !avatarUrl.trim().isEmpty()) {
-            // 这里应该实现从服务端下载头像的逻辑
-            // 暂时使用默认头像，实际项目中需要实现HTTP请求下载
-            System.out.println("[UserProfile] 需要加载远程头像: " + avatarUrl);
-            // setDefaultAvatar(); // 保持默认头像
-        }
-    }
 
     /**
      * 保存用户资料（如果需要编辑功能）
