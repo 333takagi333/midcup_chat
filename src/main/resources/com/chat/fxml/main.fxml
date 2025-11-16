@@ -4,28 +4,60 @@
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.image.*?>
 <?import javafx.geometry.Insets?>
+<?import java.lang.String?>
 
 <BorderPane fx:id="mainContainer" xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.chat.control.MainControl">
+    <!-- attach stylesheet -->
+
     <top>
-        <HBox fx:id="topBar" spacing="15" style="-fx-background-color: #2c3e50; -fx-padding: 10;">
-            <ImageView fx:id="avatarImage" fitWidth="40" fitHeight="40" />
-            <Label fx:id="usernameLabel" style="-fx-text-fill: white; -fx-font-size: 16; -fx-font-weight: bold;" />
+        <HBox fx:id="topBar" spacing="15" styleClass="top-bar">
+            <!-- Avatar visibility/size is controlled in FXML now -->
+            <ImageView fx:id="avatarImage" fitWidth="40" fitHeight="40" visible="false" />
+            <!-- Username style moved to CSS class -->
+            <Label fx:id="usernameLabel" styleClass="username-label" />
             <Region HBox.hgrow="ALWAYS" />
-            <Button fx:id="notificationButton" text="通知" style="-fx-background-color: #3498db; -fx-text-fill: white;" />
-            <MenuButton fx:id="settingsMenu" text="菜单" style="-fx-background-color: #34495e; -fx-text-fill: white;" />
+            <!-- Notification button styling moved to CSS class -->
+            <Button fx:id="notificationButton" text="通知" styleClass="notification-button" />
+            <!-- Settings menu items moved into FXML so controller doesn't need to create them at runtime -->
+            <MenuButton fx:id="settingsMenu" text="菜单" styleClass="settings-menu">
+                <items>
+                    <MenuItem fx:id="profileMenuItem" text="个人资料" onAction="#showUserProfile" />
+                    <MenuItem fx:id="settingsMenuItem" text="设置" onAction="#showSettings" />
+                    <SeparatorMenuItem />
+                    <MenuItem fx:id="logoutMenuItem" text="退出登录" onAction="#logout" />
+                </items>
+            </MenuButton>
         </HBox>
     </top>
 
     <center>
         <TabPane fx:id="mainTabPane" tabClosingPolicy="UNAVAILABLE">
             <Tab fx:id="messagesTab" text="消息">
-                <ListView fx:id="messagesListView" />
+                <content>
+                    <ListView fx:id="messagesListView">
+                        <placeholder>
+                            <Label text="暂无消息" styleClass="list-placeholder" />
+                        </placeholder>
+                    </ListView>
+                </content>
             </Tab>
             <Tab fx:id="contactsTab" text="联系人">
-                <ListView fx:id="contactsListView" />
+                <content>
+                    <ListView fx:id="contactsListView">
+                        <placeholder>
+                            <Label text="暂无联系人" styleClass="list-placeholder" />
+                        </placeholder>
+                    </ListView>
+                </content>
             </Tab>
             <Tab fx:id="groupsTab" text="群聊">
-                <ListView fx:id="groupsListView" />
+                <content>
+                    <ListView fx:id="groupsListView">
+                        <placeholder>
+                            <Label text="暂无群聊" styleClass="list-placeholder" />
+                        </placeholder>
+                    </ListView>
+                </content>
             </Tab>
         </TabPane>
     </center>
