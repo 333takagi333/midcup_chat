@@ -67,7 +67,7 @@ public class ChatPrivateControl implements Initializable {
             try {
                 contactAvatar.setImage(new Image(getClass().getResourceAsStream(avatarUrl)));
             } catch (Exception e) {
-                contactAvatar.setImage(new Image(getClass().getResourceAsStream("/com/chat/images/default_avatar.png")));
+                contactAvatar.setImage(new Image(getClass().getResourceAsStream("/com/chat/images/zb.jpg")));
             }
         }
 
