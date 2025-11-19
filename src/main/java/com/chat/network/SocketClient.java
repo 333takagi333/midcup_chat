@@ -113,6 +113,12 @@ public class SocketClient {
     public String sendUserInfoRequest(UserInfoRequest request) {
         return sendRequest(request);
     }
+    /**
+     * 发送更新资料请求
+     */
+    public String sendUpdateProfileRequest(UpdateProfileRequest request) {
+        return sendRequest(request);
+    }
 
     // ==================== 聊天相关请求 ====================
 
