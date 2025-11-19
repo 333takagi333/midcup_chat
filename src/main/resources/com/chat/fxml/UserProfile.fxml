@@ -11,9 +11,32 @@
     <!-- 头像区域 -->
     <VBox spacing="15" alignment="CENTER">
         <ImageView fx:id="avatarImage" fitWidth="100" fitHeight="100" />
-        <Button text="修改头像" onAction="#editAvatar" />
-        <Label fx:id="usernameLabel" style="-fx-font-size: 20; -fx-font-weight: bold;" />
-        <Label fx:id="userIdLabel" style="-fx-text-fill: #7f8c8d;" />
+        <Button fx:id="changeAvatarButton" text="修改头像" onAction="#editAvatar" visible="false"
+                style="-fx-background-color: #3498db; -fx-text-fill: white;"/>
+    </VBox>
+
+    <!-- 用户名和ID区域 - 与基本信息对齐 -->
+    <VBox spacing="10">
+        <!-- 用户名行 -->
+        <GridPane hgap="10" vgap="10">
+            <columnConstraints>
+                <ColumnConstraints prefWidth="80" />
+                <ColumnConstraints prefWidth="200" />
+            </columnConstraints>
+            <Label text="用户名：" GridPane.rowIndex="0" GridPane.columnIndex="0" style="-fx-font-size: 16; -fx-font-weight: bold; -fx-text-fill: #2c3e50;" />
+            <Label fx:id="usernameLabel" GridPane.rowIndex="0" GridPane.columnIndex="1" style="-fx-font-size: 16; -fx-font-weight: bold; -fx-text-fill: #2c3e50;" />
+            <TextField fx:id="usernameField" visible="false" GridPane.rowIndex="0" GridPane.columnIndex="1"
+                       style="-fx-font-size: 16; -fx-font-weight: bold;" />
+        </GridPane>
+        <!-- ID行 -->
+        <GridPane hgap="10" vgap="10">
+            <columnConstraints>
+                <ColumnConstraints prefWidth="80" />
+                <ColumnConstraints prefWidth="200" />
+            </columnConstraints>
+            <Label text="ID：" GridPane.rowIndex="0" GridPane.columnIndex="0" style="-fx-font-size: 14; -fx-text-fill: #7f8c8d;" />
+            <Label fx:id="userIdLabel" GridPane.rowIndex="0" GridPane.columnIndex="1" style="-fx-font-size: 14; -fx-text-fill: #7f8c8d;" />
+        </GridPane>
     </VBox>
 
     <!-- 基本信息区域 -->
@@ -36,14 +59,17 @@
             <!-- 性别 -->
             <Label text="性别:" GridPane.rowIndex="0" GridPane.columnIndex="0" style="-fx-font-weight: bold;" />
             <Label fx:id="genderLabel" GridPane.rowIndex="0" GridPane.columnIndex="1" />
+            <ComboBox fx:id="genderComboBox" visible="false" GridPane.rowIndex="0" GridPane.columnIndex="1" />
 
             <!-- 生日 -->
             <Label text="生日:" GridPane.rowIndex="1" GridPane.columnIndex="0" style="-fx-font-weight: bold;" />
             <Label fx:id="birthdayLabel" GridPane.rowIndex="1" GridPane.columnIndex="1" />
+            <TextField fx:id="birthdayField" visible="false" GridPane.rowIndex="1" GridPane.columnIndex="1" />
 
             <!-- 电话 -->
             <Label text="电话:" GridPane.rowIndex="2" GridPane.columnIndex="0" style="-fx-font-weight: bold;" />
             <Label fx:id="phoneLabel" GridPane.rowIndex="2" GridPane.columnIndex="1" />
+            <TextField fx:id="phoneField" visible="false" GridPane.rowIndex="2" GridPane.columnIndex="1" />
 
             <!-- 状态 -->
             <Label text="状态:" GridPane.rowIndex="3" GridPane.columnIndex="0" style="-fx-font-weight: bold;" />
@@ -51,17 +77,13 @@
         </GridPane>
     </VBox>
 
-    <!-- 个性签名区域 -->
-    <VBox spacing="10">
-        <Label text="个性签名" style="-fx-font-weight: bold; -fx-font-size: 16; -fx-text-fill: #2c3e50;" />
-        <Label fx:id="signatureLabel" wrapText="true" style="-fx-background-color: #f8f9fa; -fx-padding: 10; -fx-border-color: #e9ecef; -fx-border-radius: 5;" />
-    </VBox>
-
     <!-- 操作按钮区域 -->
     <HBox spacing="10" alignment="CENTER">
-        <Button text="保存资料" onAction="#saveProfile"
+        <Button fx:id="saveButton" text="保存资料" onAction="#saveProfile" visible="false"
                 style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold;" />
-        <Button text="编辑资料" onAction="#editProfile"
+        <Button fx:id="editButton" text="编辑资料" onAction="#editProfile"
                 style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold;" />
+        <Button fx:id="cancelButton" text="取消编辑" onAction="#cancelEdit" visible="false"
+                style="-fx-background-color: #95a5a6; -fx-text-fill: white; -fx-font-weight: bold;" />
     </HBox>
 </VBox>
