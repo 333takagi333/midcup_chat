@@ -27,7 +27,7 @@ public class RegisterControl {
     @FXML private PasswordField confirmPasswordField;
     @FXML private Button registerButton;
     @FXML private Button backButton;
-    @FXML private Label statusLabel;
+    @FXML private Label statusLabel; // 这个也可以删除了
 
     private SocketClient socketClient;
     private Gson gson = new Gson();
@@ -54,7 +54,11 @@ public class RegisterControl {
         }
 
         registerButton.setDisable(true);
-        showStatus("正在注册...", false);
+        // 可以保留statusLabel的简单状态显示
+        if (statusLabel != null) {
+            statusLabel.setText("正在注册...");
+            statusLabel.setStyle("-fx-text-fill: #007bff; -fx-font-size: 12px;");
+        }
 
         Task<RegisterResponse> task = new Task<RegisterResponse>() {
             @Override
@@ -83,7 +87,11 @@ public class RegisterControl {
 
         task.setOnFailed(e -> {
             registerButton.setDisable(false);
-            showStatus("注册失败，网络错误", true);
+            // 网络错误时显示简单提示
+            if (statusLabel != null) {
+                statusLabel.setText("注册失败，网络错误");
+                statusLabel.setStyle("-fx-text-fill: #dc3545; -fx-font-size: 12px;");
+            }
         });
 
         new Thread(task).start();
@@ -94,26 +102,40 @@ public class RegisterControl {
      */
     private void handleRegisterResponse(RegisterResponse response) {
         if (response == null) {
-            showStatus("注册失败，服务器无响应", true);
+            // 服务器无响应
+            if (statusLabel != null) {
+                statusLabel.setText("注册失败，服务器无响应");
+                statusLabel.setStyle("-fx-text-fill: #dc3545; -fx-font-size: 12px;");
+            }
             return;
         }
 
         // 校验响应类型
         if (!MessageType.REGISTER_RESPONSE.equals(response.getType())) {
-            showStatus("注册失败，响应类型不匹配", true);
+            if (statusLabel != null) {
+                statusLabel.setText("注册失败，响应类型不匹配");
+                statusLabel.setStyle("-fx-text-fill: #dc3545; -fx-font-size: 12px;");
+            }
             return;
         }
 
         if (response.isSuccess()) {
-            String successMsg = response.getMessage() != null ? response.getMessage() : "注册成功！";
-            DialogUtil.showInfo(registerButton.getScene().getWindow(), successMsg);
-            backToLogin();
+            // 清除状态标签（如果有）
+            if (statusLabel != null) {
+                statusLabel.setText("");
+            }
+
+            // 显示注册成功信息窗口
+            showRegistrationSuccessDialog(response.getUid(), response.getSecretKey());
         } else {
             String errorMsg = "注册失败";
             if (response.getMessage() != null && !response.getMessage().isBlank()) {
                 errorMsg += ": " + response.getMessage();
             }
-            showStatus(errorMsg, true);
+            if (statusLabel != null) {
+                statusLabel.setText(errorMsg);
+                statusLabel.setStyle("-fx-text-fill: #dc3545; -fx-font-size: 12px;");
+            }
         }
     }
 
@@ -122,23 +144,64 @@ public class RegisterControl {
      */
     private boolean validateInput(String username, String password, String confirmPassword) {
         if (username.isEmpty()) {
-            showStatus("请输入用户名", true);
+            // 可以直接使用DialogUtil显示错误
+            DialogUtil.showError(usernameField.getScene().getWindow(), "请输入用户名");
+            usernameField.requestFocus();
             return false;
         }
         if (password.isEmpty()) {
-            showStatus("请输入密码", true);
+            DialogUtil.showError(passwordField.getScene().getWindow(), "请输入密码");
+            passwordField.requestFocus();
             return false;
         }
         if (confirmPassword.isEmpty()) {
-            showStatus("请确认密码", true);
+            DialogUtil.showError(confirmPasswordField.getScene().getWindow(), "请确认密码");
+            confirmPasswordField.requestFocus();
             return false;
         }
         if (!password.equals(confirmPassword)) {
-            showStatus("两次输入的密码不一致", true);
+            DialogUtil.showError(confirmPasswordField.getScene().getWindow(), "两次输入的密码不一致");
+            confirmPasswordField.requestFocus();
             return false;
         }
 
         return true;
+    }
+
+    /**
+     * 显示注册成功信息对话框
+     */
+    private void showRegistrationSuccessDialog(Long uid, String secretKey) {
+        try {
+            // 加载FXML
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/chat/fxml/registration-success.fxml"));
+            Parent root = loader.load();
+
+            // 获取控制器并设置数据
+            RegistrationSuccessControl controller = loader.getController();
+            controller.setRegistrationInfo(uid != null ? uid.toString() : "", secretKey);
+            controller.setOnConfirmCallback(this::backToLogin);
+
+            // 创建窗口
+            Stage dialogStage = new Stage();
+            dialogStage.setTitle("注册成功");
+            dialogStage.setScene(new Scene(root, 400, 320));
+            dialogStage.setResizable(false);
+
+            // 显示模态对话框
+            dialogStage.initModality(javafx.stage.Modality.APPLICATION_MODAL);
+            dialogStage.initOwner(registerButton.getScene().getWindow());
+            dialogStage.show();
+
+        } catch (Exception e) {
+            System.err.println("加载注册成功窗口失败: " + e.getMessage());
+            e.printStackTrace();
+
+            // 失败时显示简单提示并返回登录
+            DialogUtil.showInfo(registerButton.getScene().getWindow(),
+                    "注册成功！\n用户ID: " + uid + "\n登录密钥: " + secretKey);
+            backToLogin();
+        }
     }
 
     /**
@@ -156,20 +219,6 @@ public class RegisterControl {
         } catch (Exception e) {
             System.err.println("返回登录页面失败: " + e.getMessage());
             DialogUtil.showInfo(backButton.getScene().getWindow(), "返回登录页面失败");
-        }
-    }
-
-    /**
-     * 显示状态信息
-     */
-    private void showStatus(String message, boolean isError) {
-        if (statusLabel != null) {
-            statusLabel.setText(message);
-            if (isError) {
-                statusLabel.setStyle("-fx-text-fill: #dc3545; -fx-font-size: 12px;");
-            } else {
-                statusLabel.setStyle("-fx-text-fill: #28a745; -fx-font-size: 12px;");
-            }
         }
     }
 }

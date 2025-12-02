@@ -18,10 +18,10 @@
         <!-- 标题 -->
         <Label text="中杯" style="-fx-font-size: 32px; -fx-font-weight: bold;"/>
 
-        <!-- 账号输入区域 -->
+        <!-- UID输入区域 -->
         <VBox alignment="CENTER_LEFT" spacing="5">
-            <Label text="账号" style="-fx-font-size: 14px;"/>
-            <TextField fx:id="usernameField" promptText="请输入"
+            <Label text="用户ID" style="-fx-font-size: 14px;"/>
+            <TextField fx:id="uidField" promptText="请输入用户ID（数字）"
                        style="-fx-pref-width: 250px; -fx-pref-height: 35px;"/>
         </VBox>
 

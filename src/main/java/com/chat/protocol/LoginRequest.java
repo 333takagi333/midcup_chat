@@ -6,16 +6,28 @@ package com.chat.protocol;
 @SuppressWarnings("unused")
 public class LoginRequest {
     private String type;     // 协议类型：MessageType.LOGIN_REQUEST
-    private String username;
+    private Long uid;        // 修改：uid改为Long类型
     private String password;
 
     public LoginRequest() {
         this.type = MessageType.LOGIN_REQUEST;
     }
 
-    public LoginRequest(String username, String password) {
+    // 构造函数，接收String类型的uid，内部转换为Long
+    public LoginRequest(String uid, String password) {
         this.type = MessageType.LOGIN_REQUEST;
-        this.username = username;
+        try {
+            this.uid = Long.parseLong(uid);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("UID必须是数字: " + uid);
+        }
+        this.password = password;
+    }
+
+    // 构造函数，直接接收Long类型的uid
+    public LoginRequest(Long uid, String password) {
+        this.type = MessageType.LOGIN_REQUEST;
+        this.uid = uid;
         this.password = password;
     }
 
@@ -27,12 +39,12 @@ public class LoginRequest {
         this.type = type;
     }
 
-    public String getUsername() {
-        return username;
+    public Long getUid() {
+        return uid;
     }
 
-    public void setUsername(String username) {
-        this.username = username;
+    public void setUid(Long uid) {
+        this.uid = uid;
     }
 
     public String getPassword() {

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
+
+<VBox fx:id="mainContainer" alignment="CENTER" spacing="20" xmlns="http://javafx.com/javafx/17.0.2-ea" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.chat.control.RegistrationSuccessControl">
+    <padding>
+        <Insets top="20" right="20" bottom="20" left="20"/>
+    </padding>
+
+    <!-- 成功图标和标题 -->
+    <Label fx:id="titleLabel" text="✓ 注册成功" style="-fx-text-fill: #28a745;">
+        <font>
+            <Font size="18.0" name="System Bold"/>
+        </font>
+    </Label>
+
+    <!-- 提示信息 -->
+    <Label fx:id="instructionLabel" text="以下是您的账户信息，请妥善保管：" wrapText="true" style="-fx-text-fill: #666;">
+        <font>
+            <Font size="14.0"/>
+        </font>
+    </Label>
+
+    <!-- 用户ID信息 -->
+    <VBox spacing="5">
+        <Label text="用户ID (UID):" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <TextField fx:id="uidField" editable="false" prefWidth="250" style="-fx-font-size: 14px; -fx-text-fill: #007bff; -fx-background-color: #f8f9fa;"/>
+            <Button fx:id="copyUidButton" text="复制" style="-fx-background-color: #6c757d; -fx-text-fill: white;"/>
+        </HBox>
+    </VBox>
+
+    <!-- 密钥信息 -->
+    <VBox spacing="5">
+        <Label text="登录密钥:" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <TextField fx:id="secretKeyField" editable="false" prefWidth="250" style="-fx-font-size: 14px; -fx-text-fill: #dc3545; -fx-font-family: 'Consolas', 'Monaco', 'Courier New'; -fx-background-color: #f8f9fa;"/>
+            <Button fx:id="copyKeyButton" text="复制" style="-fx-background-color: #6c757d; -fx-text-fill: white;"/>
+        </HBox>
+    </VBox>
+
+    <!-- 按钮区域 -->
+    <HBox spacing="20" alignment="CENTER">
+        <Button fx:id="copyAllButton" text="复制全部" prefWidth="100" style="-fx-background-color: #007bff; -fx-text-fill: white; -fx-font-weight: bold;"/>
+        <Button fx:id="confirmButton" text="确定" prefWidth="100" style="-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-weight: bold;"/>
+    </HBox>
+</VBox>

@@ -26,35 +26,23 @@ public class UserProfileControl implements Initializable {
     // FXML控件
     @FXML private ImageView avatarImage;
     @FXML private Label usernameLabel, userIdLabel, statusLabel, genderLabel, birthdayLabel, phoneLabel;
-    @FXML private TextField usernameField; // 新增：用户名输入框
+    @FXML private TextField usernameField;
     @FXML private ComboBox<String> genderComboBox;
     @FXML private TextField birthdayField, phoneField;
-    @FXML private Button saveButton, editButton, cancelButton, changeAvatarButton;
+    @FXML private Button saveButton, editButton, cancelButton;
 
     // 业务数据
     private String username, userId;
     private SocketClient socketClient;
     private UserProfileService profileService;
     private boolean isEditing = false;
-    private File selectedAvatarFile;
+    private File selectedAvatarFile; // 新选择的头像文件
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         AvatarHelper.setDefaultAvatar(avatarImage, false, 100);
         genderComboBox.getItems().addAll("未知", "男", "女");
         setEditMode(false);
-        setupAvatarClickEvent();
-    }
-
-    /**
-     * 设置头像点击事件
-     */
-    private void setupAvatarClickEvent() {
-        avatarImage.setOnMouseClicked(event -> {
-            if (event.getClickCount() == 1 && isEditing) {
-                selectAvatarImage();
-            }
-        });
     }
 
     /**
@@ -75,7 +63,7 @@ public class UserProfileControl implements Initializable {
     private void updateUI() {
         Platform.runLater(() -> {
             usernameLabel.setText(username != null ? username : "未知用户");
-            userIdLabel.setText(userId != null ? "ID: " + userId : "未知");
+            userIdLabel.setText(userId != null ? userId : "未知");
             statusLabel.setText("在线");
             genderLabel.setText("未知");
             birthdayLabel.setText("未设置");
@@ -109,8 +97,8 @@ public class UserProfileControl implements Initializable {
             this.username = response.getUsername();
         }
         if (response.getUid() != null) {
-            userIdLabel.setText(response.getUid().toString());
-            this.userId = String.valueOf(response.getUid());
+            userIdLabel.setText(String.valueOf(response.getUid()));
+            this.userId = response.getUid().toString();
         }
         if (response.getGender() != null) {
             String genderText = ProfileValidationService.getGenderText(response.getGender());
@@ -151,7 +139,6 @@ public class UserProfileControl implements Initializable {
         saveButton.setVisible(editing);
         cancelButton.setVisible(editing);
         editButton.setVisible(!editing);
-        changeAvatarButton.setVisible(editing);
 
         editButton.setText(editing ? "编辑中..." : "编辑资料");
     }
@@ -184,24 +171,12 @@ public class UserProfileControl implements Initializable {
     private void saveProfile() {
         if (!validateInput()) return;
 
-        // 构建更新请求
+        // 构建更新请求（不包含头像）
         UpdateProfileRequest request = new UpdateProfileRequest();
-        request.setUsername(usernameField.getText().trim()); // 新增：用户名
+        request.setUsername(usernameField.getText().trim());
         request.setGender(ProfileValidationService.getGenderCode(genderComboBox.getValue()));
         request.setBirthday(birthdayField.getText().trim());
         request.setTele(phoneField.getText().trim());
-
-        // 处理头像更新
-        if (selectedAvatarFile != null) {
-            String avatarData = AvatarService.imageFileToBase64(selectedAvatarFile);
-            if (avatarData != null) {
-                request.setAvatarData(avatarData);
-                request.setAvatarFileName(AvatarService.generateAvatarFileName(userId));
-            } else {
-                DialogUtil.showError(getCurrentWindow(), "头像文件处理失败");
-                return;
-            }
-        }
 
         // 提交到服务器
         if (profileService != null) {
@@ -210,7 +185,7 @@ public class UserProfileControl implements Initializable {
                 updateLocalDisplay();
                 setEditMode(false);
                 DialogUtil.showInfo(getCurrentWindow(), "资料更新成功");
-                loadUserInfoFromServer();
+                // 不重新加载用户信息，避免头像消失
             } else {
                 DialogUtil.showError(getCurrentWindow(), "资料更新失败");
             }
@@ -257,11 +232,10 @@ public class UserProfileControl implements Initializable {
         genderLabel.setText(genderComboBox.getValue());
         birthdayLabel.setText(birthdayField.getText().trim().isEmpty() ? "未设置" : birthdayField.getText().trim());
         phoneLabel.setText(phoneField.getText().trim().isEmpty() ? "未设置" : phoneField.getText().trim());
-        selectedAvatarFile = null;
     }
 
     /**
-     * 编辑头像 - 选择新头像图片
+     * 编辑头像 - 独立功能，不依赖编辑模式
      */
     @FXML
     private void editAvatar() {
@@ -269,27 +243,57 @@ public class UserProfileControl implements Initializable {
     }
 
     /**
-     * 选择头像图片 - 打开文件选择器并加载图片
+     * 选择头像图片 - 独立功能，随时可以修改头像
      */
     private void selectAvatarImage() {
-        if (!isEditing) {
-            DialogUtil.showInfo(getCurrentWindow(), "请先进入编辑模式");
-            return;
-        }
-
         File selectedFile = AvatarService.selectAvatarFile(getCurrentWindow());
         if (selectedFile != null) {
+            // 验证文件大小
             if (!AvatarService.validateImageFile(selectedFile, 2)) {
-                DialogUtil.showError(getCurrentWindow(), "图片文件太大");
+                DialogUtil.showError(getCurrentWindow(), "图片文件太大，请选择小于2MB的图片");
                 return;
             }
 
+            // 加载并预览图片
             if (AvatarService.loadImageFromFile(selectedFile, avatarImage, 100)) {
-                selectedAvatarFile = selectedFile;
-                DialogUtil.showInfo(getCurrentWindow(), "头像已更新");
+                // 立即上传头像
+                uploadAvatar(selectedFile);
             } else {
-                DialogUtil.showError(getCurrentWindow(), "图片加载失败");
+                DialogUtil.showError(getCurrentWindow(), "图片加载失败，请选择其他图片");
             }
+        } else {
+            // 用户取消选择，保持原头像不变
+            System.out.println("[UserProfile] 用户取消选择头像");
+            // 不需要做任何操作，头像保持原样
+        }
+    }
+
+    /**
+     * 上传头像 - 独立上传头像功能
+     */
+    private void uploadAvatar(File avatarFile) {
+        try {
+            String avatarData = AvatarService.imageFileToBase64(avatarFile);
+            if (avatarData != null) {
+                UpdateProfileRequest request = new UpdateProfileRequest();
+                request.setAvatarData(avatarData);
+                request.setAvatarFileName(AvatarService.generateAvatarFileName(userId));
+
+                if (profileService != null) {
+                    boolean success = profileService.updateUserProfile(request);
+                    if (success) {
+                        DialogUtil.showInfo(getCurrentWindow(), "头像更新成功");
+                        loadUserInfoFromServer(); // 重新加载确保数据一致性
+                    } else {
+                        DialogUtil.showError(getCurrentWindow(), "头像更新失败");
+                    }
+                }
+            } else {
+                DialogUtil.showError(getCurrentWindow(), "头像文件处理失败");
+            }
+        } catch (Exception e) {
+            System.err.println("[UserProfile] 头像上传失败: " + e.getMessage());
+            DialogUtil.showError(getCurrentWindow(), "头像上传失败: " + e.getMessage());
         }
     }
 
