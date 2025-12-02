@@ -34,7 +34,7 @@ import java.util.TimerTask;
 import java.util.function.Consumer;
 
 /**
- * 主界面控制器 - 精简Service版本
+ * 主界面控制器 - 添加窗口管理功能
  */
 public class MainControl implements Initializable {
 
@@ -60,6 +60,9 @@ public class MainControl implements Initializable {
 
     private final Map<String, Consumer<String>> messageHandlers = new HashMap<>();
 
+    // 新增：窗口管理
+    private final Map<String, Stage> activeWindows = new HashMap<>();
+
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         setupUI();
@@ -67,7 +70,6 @@ public class MainControl implements Initializable {
         setupEventHandlers();
         registerMessageHandlers();
         loadUserAvatar();
-
 
         Platform.runLater(() -> {
             startMessageListener();
@@ -116,26 +118,60 @@ public class MainControl implements Initializable {
         notificationButton.setOnAction(event -> showNotifications());
     }
 
-    // ========== 窗口管理 ==========
+    // ========== 改进的窗口管理 ==========
     private void openChatWindow(ChatItem chat) {
+        String windowKey = getChatWindowKey(chat);
+        if (isWindowAlreadyOpen(windowKey)) {
+            bringWindowToFront(windowKey);
+            return;
+        }
+
         String fxmlPath = chat.isGroup() ? "/com/chat/fxml/ChatGroup.fxml" : "/com/chat/fxml/ChatPrivate.fxml";
         String title = chat.isGroup() ? "群聊: " + chat.getName() : "与 " + chat.getName() + " 聊天";
 
-        openWindow(fxmlPath, controller -> setupChatController(controller, chat), title, 600, 700);
+        openManagedWindow(fxmlPath, controller -> setupChatController(controller, chat), title, 600, 700, windowKey);
     }
 
     private void openPrivateChat(FriendItem friend) {
-        openWindow("/com/chat/fxml/ChatPrivate.fxml",
+        String windowKey = "private_" + friend.getUserId();
+        if (isWindowAlreadyOpen(windowKey)) {
+            bringWindowToFront(windowKey);
+            return;
+        }
+
+        openManagedWindow("/com/chat/fxml/ChatPrivate.fxml",
                 controller -> setupPrivateController(controller, friend),
-                "与 " + friend.getUsername() + " 聊天", 600, 700);
+                "与 " + friend.getUsername() + " 聊天", 600, 700, windowKey);
         stateService.upsertChat(friend.getUserId(), friend.getUsername(), friend.getAvatarUrl(), "已打开聊天", false, false);
     }
 
     private void openGroupChat(GroupItem group) {
-        openWindow("/com/chat/fxml/ChatGroup.fxml",
+        String windowKey = "group_" + group.getGroupId();
+        if (isWindowAlreadyOpen(windowKey)) {
+            bringWindowToFront(windowKey);
+            return;
+        }
+
+        openManagedWindow("/com/chat/fxml/ChatGroup.fxml",
                 controller -> setupGroupController(controller, group),
-                "群聊: " + group.getName(), 600, 700);
+                "群聊: " + group.getName(), 600, 700, windowKey);
         stateService.upsertChat(group.getGroupId(), group.getName(), group.getAvatarUrl(), "已打开聊天", false, true);
+    }
+
+    private String getChatWindowKey(ChatItem chat) {
+        return chat.isGroup() ? "group_" + chat.getId() : "private_" + chat.getId();
+    }
+
+    private boolean isWindowAlreadyOpen(String windowKey) {
+        return activeWindows.containsKey(windowKey);
+    }
+
+    private void bringWindowToFront(String windowKey) {
+        Stage stage = activeWindows.get(windowKey);
+        if (stage != null) {
+            stage.toFront();
+            stage.requestFocus();
+        }
     }
 
     private void setupChatController(Object controller, ChatItem chat) {
@@ -158,7 +194,7 @@ public class MainControl implements Initializable {
         }
     }
 
-    private void openWindow(String fxmlPath, Consumer<Object> controllerSetup, String title, int width, int height) {
+    private void openManagedWindow(String fxmlPath, Consumer<Object> controllerSetup, String title, int width, int height, String windowKey) {
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource(fxmlPath));
             Parent root = loader.load();
@@ -167,7 +203,18 @@ public class MainControl implements Initializable {
             Stage stage = new Stage();
             stage.setTitle(title);
             stage.setScene(new Scene(root, width, height));
+
+            // 设置窗口关闭事件处理
+            stage.setOnCloseRequest(event -> {
+                activeWindows.remove(windowKey);
+                System.out.println("[MainControl] 关闭窗口: " + windowKey);
+            });
+
             stage.show();
+
+            // 保存窗口引用
+            activeWindows.put(windowKey, stage);
+
         } catch (IOException e) {
             DialogHelper.showError(mainContainer.getScene().getWindow(), "打开窗口失败: " + e.getMessage());
         }
@@ -257,7 +304,20 @@ public class MainControl implements Initializable {
     }
 
     private void stopMessageListener() {
-        if (messageTimer != null) messageTimer.cancel();
+        if (messageTimer != null) {
+            messageTimer.cancel();
+        }
+        // 关闭所有窗口
+        closeAllWindows();
+    }
+
+    private void closeAllWindows() {
+        for (Stage stage : activeWindows.values()) {
+            if (stage != null) {
+                stage.close();
+            }
+        }
+        activeWindows.clear();
     }
 
     private void clearAllData() {
@@ -270,9 +330,10 @@ public class MainControl implements Initializable {
     }
 
     @FXML private void showUserProfile() {
-        openWindow("/com/chat/fxml/UserProfile.fxml",
+        // 个人资料窗口可以重复打开
+        openManagedWindow("/com/chat/fxml/UserProfile.fxml",
                 controller -> ((UserProfileControl) controller).setUserInfo(username, userId, socketClient),
-                "个人资料", 400, 500);
+                "个人资料", 400, 500, "user_profile_" + System.currentTimeMillis());
     }
 
     @FXML private void showSettings() {
@@ -282,15 +343,54 @@ public class MainControl implements Initializable {
     @FXML private void logout() {
         if (DialogHelper.showConfirmation(mainContainer.getScene().getWindow(), "确认退出登录？")) {
             stopMessageListener();
+            closeAllWindows();
             if (socketClient != null) socketClient.disconnect();
             ((Stage) mainContainer.getScene().getWindow()).close();
         }
     }
 
+    // ========== 头像加载方法 - 使用AvatarHelper ==========
+    private void loadUserAvatar() {
+        if (avatarImage == null) {
+            System.err.println("avatarImage is null, cannot load avatar");
+            return;
+        }
+
+        if (userId != null && !userId.isEmpty() && isConnected()) {
+            loadUserAvatarFromServer();
+        } else {
+            AvatarHelper.setDefaultAvatar(avatarImage, false);
+        }
+    }
+
+    private void loadUserAvatarFromServer() {
+        try {
+            Long userIdLong = Long.parseLong(userId);
+            UserInfoRequest request = new UserInfoRequest(userIdLong);
+
+            String response = socketClient.sendRequest(request);
+            if (response != null) {
+                UserInfoResponse userInfo = gson.fromJson(response, UserInfoResponse.class);
+                if (userInfo != null && userInfo.getAvatarUrl() != null) {
+                    AvatarHelper.loadAvatar(avatarImage, userInfo.getAvatarUrl(), false, 40);
+                    return;
+                }
+            }
+        } catch (NumberFormatException e) {
+            System.err.println("用户ID格式错误: " + userId);
+        } catch (Exception e) {
+            System.err.println("加载用户头像信息失败: " + e.getMessage());
+        }
+
+        AvatarHelper.setDefaultAvatar(avatarImage, false);
+    }
+
     // ========== Setter 方法 ==========
     public void setSocketClient(SocketClient socketClient) {
         this.socketClient = socketClient;
-        if (userId != null && isConnected()) AvatarHelper.loadAvatar(avatarImage, null, false);
+        if (userId != null && isConnected()) {
+            AvatarHelper.loadAvatar(avatarImage, null, false);
+        }
         Platform.runLater(this::tryLoadInitialDataIfReady);
     }
 
@@ -302,50 +402,6 @@ public class MainControl implements Initializable {
 
     public void setUserId(String userId) {
         this.userId = userId;
-    }
-    /**
-     * 加载用户头像
-     */
-    private void loadUserAvatar() {
-        if (avatarImage == null) {
-            System.err.println("avatarImage is null, cannot load avatar");
-            return;
-        }
-
-        // 如果有用户ID，尝试从服务器加载头像
-        if (userId != null && !userId.isEmpty() && isConnected()) {
-            loadUserAvatarFromServer();
-        } else {
-            // 否则使用默认头像
-            AvatarHelper.setDefaultAvatar(avatarImage, false);
-        }
-    }
-
-    /**
-     * 从服务器加载用户头像信息
-     */
-    private void loadUserAvatarFromServer() {
-        try {
-            // 将String类型的userId转换为Long
-            Long userIdLong = Long.parseLong(userId);
-            UserInfoRequest request = new UserInfoRequest(userIdLong);
-
-            String response = socketClient.sendRequest(request);
-            if (response != null) {
-                UserInfoResponse userInfo = gson.fromJson(response, UserInfoResponse.class);
-                if (userInfo != null && userInfo.getAvatarUrl() != null) {
-                    // 使用服务器返回的头像URL
-                    AvatarHelper.loadAvatar(avatarImage, userInfo.getAvatarUrl(), false);
-                    return;
-                }
-            }
-        } catch (NumberFormatException e) {
-            System.err.println("用户ID格式错误: " + userId);
-        } catch (Exception e) {
-            System.err.println("加载用户头像信息失败: " + e.getMessage());
-        }
-
-        // 如果从服务器加载失败，使用默认头像
-        AvatarHelper.setDefaultAvatar(avatarImage, false);
+        Platform.runLater(this::loadUserAvatar);
     }
 }

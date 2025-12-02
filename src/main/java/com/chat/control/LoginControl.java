@@ -20,11 +20,11 @@ import javafx.stage.Stage;
 import java.io.IOException;
 
 /**
- * 登录界面的控制器
+ * 登录界面的控制器 - UID登录
  */
 public class LoginControl {
 
-    @FXML private TextField usernameField;
+    @FXML private TextField uidField;
     @FXML private PasswordField passwordField;
     @FXML private CustomButton loginButton;
     @FXML private Hyperlink registerLink;
@@ -37,8 +37,11 @@ public class LoginControl {
      */
     @FXML
     public void initialize() {
-        usernameField.setOnAction(this::handleLogin);
+        uidField.setOnAction(this::handleLogin);
         passwordField.setOnAction(this::handleLogin);
+
+        // 设置提示文本
+        uidField.setPromptText("请输入用户ID（数字）");
     }
 
     /**
@@ -66,6 +69,7 @@ public class LoginControl {
             DialogUtil.showInfo(loginButton.getScene().getWindow(), "加载注册页面失败");
         }
     }
+
     /**
      * 忘记密码入口。
      */
@@ -83,31 +87,37 @@ public class LoginControl {
             DialogUtil.showInfo(loginButton.getScene().getWindow(), "加载忘记密码页面失败");
         }
     }
+
     /**
      * 执行登录流程：校验输入 -> 后台线程向服务器发送登录请求 -> 处理响应。
      */
     private void handleLogin(ActionEvent event) {
-        String username = usernameField.getText();
+        String uidText = uidField.getText().trim();
         String password = passwordField.getText();
 
-        if (username.isEmpty() || password.isEmpty()) {
-            DialogUtil.showInfo(loginButton.getScene().getWindow(), "请输入用户名和密码");
+        // 输入验证
+        Long uid;
+        try {
+            uid = validateInput(uidText, password);
+        } catch (IllegalArgumentException e) {
+            DialogUtil.showInfo(loginButton.getScene().getWindow(), e.getMessage());
             return;
         }
 
         loginButton.setDisable(true);
+        final Long finalUid = uid;
 
         Task<String> task = new Task<>() {
             @Override
             protected String call() {
                 socketClient = new SocketClient();
-                return sendLoginRequest(username, password);
+                return sendLoginRequest(finalUid, password);
             }
         };
 
         task.setOnSucceeded(e -> {
             loginButton.setDisable(false);
-            handleLoginResponse(task.getValue(), username);
+            handleLoginResponse(task.getValue(), finalUid);
         });
 
         task.setOnFailed(e -> {
@@ -120,25 +130,53 @@ public class LoginControl {
     }
 
     /**
-     * 组装并发送登录请求，遵循协议 type=login_request。
-     * @return 服务器返回的首行响应字符串，失败时返回 null
+     * 输入验证
      */
-    private String sendLoginRequest(String username, String password) {
+    private Long validateInput(String uidText, String password) throws IllegalArgumentException {
+        if (uidText.isEmpty()) {
+            uidField.requestFocus();
+            throw new IllegalArgumentException("请输入用户ID");
+        }
+
+        // 验证UID是否为数字
+        Long uid;
+        try {
+            uid = Long.parseLong(uidText);
+        } catch (NumberFormatException e) {
+            uidField.requestFocus();
+            throw new IllegalArgumentException("用户ID必须是数字");
+        }
+
+        if (password.isEmpty()) {
+            passwordField.requestFocus();
+            throw new IllegalArgumentException("请输入密码");
+        }
+
+        return uid;
+    }
+
+    /**
+     * 组装并发送登录请求
+     */
+    private String sendLoginRequest(Long uid, String password) {
+        // 加密密码
         String encrypted = PasswordEncryptor.encrypt(password);
-        LoginRequest request = new LoginRequest(username, encrypted);
+
+        // 创建登录请求，使用Long类型的uid
+        LoginRequest request = new LoginRequest(uid, encrypted);
         return socketClient.sendLoginRequest(request);
     }
 
     /**
-     * 按照当前标准处理登录响应：顶层字段必须包含 type、success，可选 uid、message。
+     * 处理登录响应
      */
-    private void handleLoginResponse(String response, String username) {
+    private void handleLoginResponse(String response, Long inputUid) {
         if (response == null) {
             DialogUtil.showInfo(loginButton.getScene().getWindow(), "服务器连接失败，请稍后重试");
             return;
         }
 
-        // 先解析 JSON
+        // 解析JSON响应
         LoginResponse resp;
         try {
             Gson gson = new Gson();
@@ -158,22 +196,30 @@ public class LoginControl {
         }
 
         boolean loginOk = resp.isSuccess();
-        String uid = resp.getUid();
         String message = resp.getMessage();
+        String responseUid = resp.getUid(); // 服务器返回的UID（String类型）
 
         if (!loginOk) {
             DialogUtil.showInfo(loginButton.getScene().getWindow(),
-                    (message == null || message.isBlank()) ? "登录失败，用户或密码错误，请重试" : message);
+                    (message == null || message.isBlank()) ? "登录失败，用户ID或密码错误，请重试" : message);
             if (socketClient != null) socketClient.disconnect();
             return;
         }
 
-        // 登录成功，加载主界面（与响应解析分开处理）
+        // 登录成功，加载主界面
         try {
-            showMainWindow(username, uid);
+            // 获取用户名
+            String username = resp.getUsername();
+            if (username == null || username.isEmpty()) {
+                username = "用户" + inputUid;
+            }
+
+            // 使用服务器返回的uid（如果提供了的话），否则使用输入的uid
+            String actualUid = (responseUid != null && !responseUid.isEmpty()) ? responseUid : inputUid.toString();
+
+            showMainWindow(username, actualUid);
             closeLoginWindow();
         } catch (IOException e) {
-            // 将加载失败的详细堆栈直接打印到控制台，便于定位 FXML 事件/ID 不匹配问题
             e.printStackTrace();
             DialogUtil.showInfo(loginButton.getScene().getWindow(), "加载主界面失败: " + e.getMessage());
             if (socketClient != null) socketClient.disconnect();
@@ -188,7 +234,6 @@ public class LoginControl {
             var fxmlUrl = getClass().getResource("/com/chat/fxml/main.fxml");
             if (fxmlUrl == null) {
                 System.err.println("[FXML] 资源未找到: /com/chat/fxml/main.fxml");
-                System.err.println("[FXML] 当前类路径: " + System.getProperty("java.class.path"));
                 throw new IOException("找不到 main.fxml 资源");
             }
             System.out.println("[FXML] 成功找到资源: " + fxmlUrl.toExternalForm());
@@ -202,9 +247,7 @@ public class LoginControl {
 
             controller.setUsername(username);
             controller.setSocketClient(socketClient);
-            if (uid != null && !uid.isBlank()) {
-                controller.setUserId(uid);
-            }
+            controller.setUserId(uid);
 
             Stage stage = new Stage();
             stage.setTitle("中杯聊天软件 - " + username);

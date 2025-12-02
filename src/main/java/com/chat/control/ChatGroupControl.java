@@ -2,6 +2,7 @@ package com.chat.control;
 
 import com.chat.network.SocketClient;
 import com.chat.protocol.ChatGroupSend;
+import com.chat.ui.AvatarHelper;
 import com.chat.ui.DialogUtil;
 import com.google.gson.Gson;
 import javafx.application.Platform;
@@ -10,7 +11,6 @@ import javafx.fxml.Initializable;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
-import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 
 import java.net.URL;
@@ -28,11 +28,11 @@ public class ChatGroupControl implements Initializable {
     @FXML private TextArea chatArea;
     @FXML private TextField messageInput;
 
-    private Long groupId;  // 改为 Long 类型
+    private Long groupId;
     private String groupName;
     private String groupAvatarUrl;
     private SocketClient socketClient;
-    private Long userId;   // 改为 Long 类型
+    private Long userId;
     private Timer messageTimer;
     private Gson gson = new Gson();
 
@@ -63,13 +63,8 @@ public class ChatGroupControl implements Initializable {
 
         // 更新UI
         groupNameLabel.setText(groupName);
-        if (avatarUrl != null && !avatarUrl.isEmpty()) {
-            try {
-                groupAvatar.setImage(new Image(getClass().getResourceAsStream(avatarUrl)));
-            } catch (Exception e) {
-                groupAvatar.setImage(new Image(getClass().getResourceAsStream("/com/chat/images/zb.jpg")));
-            }
-        }
+        // 使用AvatarHelper加载头像
+        AvatarHelper.loadAvatar(groupAvatar, avatarUrl, true, 50);
 
         loadChatHistory();
     }
@@ -87,12 +82,9 @@ public class ChatGroupControl implements Initializable {
             message.setGroupId(groupId);
             message.setFromUserId(userId);
             message.setContent(content);
-            // contentType 使用默认的 TEXT
-            // timestamp 会自动设置为当前时间
 
             boolean sent = socketClient.sendGroupMessage(message);
             if (sent) {
-                // 添加到聊天区域（显示发送者名称）
                 chatArea.appendText("我: " + content + "\n");
                 messageInput.clear();
             } else {
@@ -113,10 +105,9 @@ public class ChatGroupControl implements Initializable {
             ChatGroupSend message = new ChatGroupSend();
             message.setGroupId(groupId);
             message.setFromUserId(userId);
-            message.setContentType("FILE"); // 或者使用 ContentType.FILE
+            message.setContentType("FILE");
             message.setFileName(fileName);
             message.setFileSize(fileSize);
-            // fileUrl 可能需要先上传文件到服务器获取URL
 
             boolean sent = socketClient.sendGroupMessage(message);
             if (sent) {
@@ -147,7 +138,6 @@ public class ChatGroupControl implements Initializable {
 
     private void handleReceivedMessage(String messageJson) {
         try {
-            // 解析群聊消息
             ChatGroupSend receivedMessage = gson.fromJson(messageJson, ChatGroupSend.class);
             if (receivedMessage != null && groupId.equals(receivedMessage.getGroupId())) {
                 String senderName = getSenderName(receivedMessage.getFromUserId());
@@ -163,7 +153,6 @@ public class ChatGroupControl implements Initializable {
      * 根据用户ID获取发送者名称
      */
     private String getSenderName(Long senderId) {
-        // TODO: 从本地缓存或服务器获取用户名称
         if (senderId.equals(userId)) {
             return "我";
         } else {
@@ -189,7 +178,6 @@ public class ChatGroupControl implements Initializable {
         }
     }
 
-    // Getter 方法
     public Long getGroupId() {
         return groupId;
     }

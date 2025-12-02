@@ -11,11 +11,11 @@
     <!-- 头像区域 -->
     <VBox spacing="15" alignment="CENTER">
         <ImageView fx:id="avatarImage" fitWidth="100" fitHeight="100" />
-        <Button fx:id="changeAvatarButton" text="修改头像" onAction="#editAvatar" visible="false"
+        <Button text="修改头像" onAction="#editAvatar"
                 style="-fx-background-color: #3498db; -fx-text-fill: white;"/>
     </VBox>
 
-    <!-- 用户名和ID区域 - 与基本信息对齐 -->
+    <!-- 用户名和ID区域 -->
     <VBox spacing="10">
         <!-- 用户名行 -->
         <GridPane hgap="10" vgap="10">

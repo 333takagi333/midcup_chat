@@ -2,6 +2,7 @@ package com.chat.control;
 
 import com.chat.network.SocketClient;
 import com.chat.protocol.ChatPrivateSend;
+import com.chat.ui.AvatarHelper;
 import com.chat.ui.DialogUtil;
 import com.google.gson.Gson;
 import javafx.application.Platform;
@@ -10,7 +11,6 @@ import javafx.fxml.Initializable;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
-import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 
 import java.net.URL;
@@ -28,11 +28,11 @@ public class ChatPrivateControl implements Initializable {
     @FXML private TextArea chatArea;
     @FXML private TextField messageInput;
 
-    private Long contactId;  // 改为 Long 类型
+    private Long contactId;
     private String contactName;
     private String contactAvatarUrl;
     private SocketClient socketClient;
-    private Long userId;     // 改为 Long 类型
+    private Long userId;
     private Timer messageTimer;
     private Gson gson = new Gson();
 
@@ -63,13 +63,8 @@ public class ChatPrivateControl implements Initializable {
 
         // 更新UI
         contactNameLabel.setText(contactName);
-        if (avatarUrl != null && !avatarUrl.isEmpty()) {
-            try {
-                contactAvatar.setImage(new Image(getClass().getResourceAsStream(avatarUrl)));
-            } catch (Exception e) {
-                contactAvatar.setImage(new Image(getClass().getResourceAsStream("/com/chat/images/zb.jpg")));
-            }
-        }
+        // 使用AvatarHelper加载头像
+        AvatarHelper.loadAvatar(contactAvatar, avatarUrl, false, 40);
 
         loadChatHistory();
     }

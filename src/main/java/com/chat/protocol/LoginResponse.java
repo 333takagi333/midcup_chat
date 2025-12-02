@@ -10,6 +10,8 @@ package com.chat.protocol;
  * - message：提示信息（成功可为欢迎语，失败用于错误提示）
  * - token：可选，会话令牌
  * - timestamp：响应时间戳
+ * - avatarUrl：用户头像URL（新增）
+ * - username：用户名（新增，用于显示）
  */
 @SuppressWarnings("unused")
 public class LoginResponse {
@@ -19,6 +21,8 @@ public class LoginResponse {
     private String message;  // 可选：提示信息
     private String token;    // 可选：登录凭证/会话令牌
     private long timestamp;  // 响应时间戳
+    private String avatarUrl; // 新增：用户头像URL
+    private String username;  // 新增：用户名
 
     public LoginResponse() {}
 
@@ -47,4 +51,10 @@ public class LoginResponse {
 
     public long getTimestamp() { return timestamp; }
     public void setTimestamp(long timestamp) { this.timestamp = timestamp; }
+
+    public String getAvatarUrl() { return avatarUrl; }
+    public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
+
+    public String getUsername() { return username; }
+    public void setUsername(String username) { this.username = username; }
 }
