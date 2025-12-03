@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Font?>
+
+<BorderPane fx:id="mainContainer" xmlns="http://javafx.com/javafx/11.0.1"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.chat.control.NotificationControl"
+            prefWidth="600" prefHeight="500">
+
+    <padding>
+        <Insets top="15" right="15" bottom="15" left="15"/>
+    </padding>
+
+    <top>
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <Label text="通知中心"
+                   style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Label fx:id="notificationCountLabel"
+                   style="-fx-font-size: 14px; -fx-text-fill: #2196F3;"/>
+        </HBox>
+    </top>
+
+    <center>
+        <VBox spacing="10">
+            <!-- 工具栏 -->
+            <HBox spacing="10" alignment="CENTER_RIGHT">
+                <Button fx:id="refreshButton" text="刷新"
+                        style="-fx-background-color: #4CAF50; -fx-text-fill: white;"/>
+                <Button fx:id="clearAllButton" text="清空所有"
+                        style="-fx-background-color: #f44336; -fx-text-fill: white;"/>
+            </HBox>
+
+            <!-- 通知表格 -->
+            <TableView fx:id="notificationTable"
+                       style="-fx-background-color: white;">
+                <columns>
+                    <TableColumn fx:id="fromUserColumn" text="发起人"
+                                 prefWidth="150"/>
+                    <TableColumn fx:id="timeColumn" text="时间"
+                                 prefWidth="150"/>
+                    <TableColumn fx:id="statusColumn" text="状态"
+                                 prefWidth="100"/>
+                </columns>
+                <placeholder>
+                    <Label text="暂无通知"
+                           style="-fx-font-size: 14px; -fx-text-fill: #999;"/>
+                </placeholder>
+            </TableView>
+        </VBox>
+    </center>
+
+    <bottom>
+        <HBox spacing="10" alignment="CENTER">
+            <Label text="提示：双击通知可以查看详情和处理请求"
+                   style="-fx-font-size: 12px; -fx-text-fill: #666;"/>
+        </HBox>
+    </bottom>
+</BorderPane>
