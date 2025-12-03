@@ -16,6 +16,7 @@ public class UserInfoResponse {
     private Integer gender;   // 0未知 1男 2女
     private String birthday;  // ISO 日期字符串，如 1990-01-01
     private String tele;
+    private String secretKey;
 
     public UserInfoResponse() {}
 
@@ -45,4 +46,12 @@ public class UserInfoResponse {
 
     public String getTele() { return tele; }
     public void setTele(String tele) { this.tele = tele; }
+
+    public String getSecretKey() {
+        return secretKey;
+    }
+
+    public void setSecretKey(String secretKey) {
+        this.secretKey = secretKey;
+    }
 }

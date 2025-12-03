@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Font?>
+
+<BorderPane fx:id="mainContainer" xmlns="http://javafx.com/javafx/11.0.1"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.chat.control.SettingControl"
+            prefWidth="550" prefHeight="550"
+            style="-fx-background-color: #f5f5f5;">
+
+    <padding>
+        <Insets top="15" right="20" bottom="15" left="20"/>
+    </padding>
+
+    <top>
+        <VBox spacing="8" alignment="CENTER" style="-fx-padding: 0 0 10 0;">
+            <Label text="设置"
+                   style="-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #333;"/>
+            <Label fx:id="usernameLabel"
+                   style="-fx-font-size: 13px; -fx-text-fill: #666;"/>
+        </VBox>
+    </top>
+
+    <center>
+        <ScrollPane fitToWidth="true" style="-fx-background-color: transparent;">
+            <VBox spacing="20" alignment="TOP_CENTER" style="-fx-padding: 5;">
+                <!-- 密钥显示部分 -->
+                <VBox spacing="10" style="-fx-background-color: white; -fx-padding: 18; -fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8; -fx-border-width: 1;">
+                    <Label fx:id="keyTitleLabel" text="我的密钥"
+                           style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #333;"/>
+
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <TextField fx:id="keyValueField"
+                                   style="-fx-background-color: #f9f9f9; -fx-border-color: #ddd; -fx-border-radius: 4;"
+                                   prefWidth="350" prefHeight="38"/>
+                        <Button fx:id="copyKeyButton"
+                                prefWidth="75" prefHeight="38"
+                                style="-fx-background-radius: 4; -fx-background-color: #4CAF50; -fx-text-fill: white;"/>
+                    </HBox>
+
+                    <Label text="这是您的唯一密钥，用于身份验证，请妥善保管"
+                           style="-fx-font-size: 12px; -fx-text-fill: #888; -fx-padding: 5 0 0 0;"/>
+                </VBox>
+
+                <!-- 修改密码部分 -->
+                <VBox spacing="12" style="-fx-background-color: white; -fx-padding: 18; -fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8; -fx-border-width: 1;">
+                    <Label fx:id="passwordTitleLabel" text="修改密码"
+                           style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #333;"/>
+
+                    <VBox spacing="10">
+                        <GridPane hgap="10" vgap="10">
+                            <columnConstraints>
+                                <ColumnConstraints prefWidth="80" halignment="RIGHT"/>
+                                <ColumnConstraints prefWidth="300"/>
+                            </columnConstraints>
+
+                            <rowConstraints>
+                                <RowConstraints prefHeight="45"/>
+                                <RowConstraints prefHeight="45"/>
+                                <RowConstraints prefHeight="45"/>
+                            </rowConstraints>
+
+                            <!-- 第一行：密钥 -->
+                            <Label text="密钥:"
+                                   style="-fx-font-size: 14px; -fx-font-weight: normal;"
+                                   GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                            <TextField fx:id="recoveryCodeField"
+                                       promptText="请输入安全密钥"
+                                       style="-fx-background-color: #f9f9f9; -fx-border-color: #ddd; -fx-border-radius: 4;"
+                                       prefHeight="38"
+                                       GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+                            <!-- 第二行：新密码 -->
+                            <Label text="新密码:"
+                                   style="-fx-font-size: 14px; -fx-font-weight: normal;"
+                                   GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                            <PasswordField fx:id="newPasswordField"
+                                           promptText="请输入新密码"
+                                           style="-fx-background-color: #f9f9f9; -fx-border-color: #ddd; -fx-border-radius: 4;"
+                                           prefHeight="38"
+                                           GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+                            <!-- 第三行：确认密码 -->
+                            <Label text="确认密码:"
+                                   style="-fx-font-size: 14px; -fx-font-weight: normal;"
+                                   GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                            <PasswordField fx:id="confirmPasswordField"
+                                           promptText="请确认新密码"
+                                           style="-fx-background-color: #f9f9f9; -fx-border-color: #ddd; -fx-border-radius: 4;"
+                                           prefHeight="38"
+                                           GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+                        </GridPane>
+                    </VBox>
+
+                    <VBox spacing="8" style="-fx-padding: 10 0 0 0;">
+                        <Label fx:id="passwordStatusLabel"
+                               prefHeight="25"
+                               style="-fx-font-size: 13px;"/>
+
+                        <HBox alignment="CENTER_RIGHT">
+                            <Button fx:id="updatePasswordButton"
+                                    prefWidth="120" prefHeight="40"
+                                    style="-fx-background-radius: 4; -fx-background-color: #2196F3; -fx-text-fill: white;"/>
+                        </HBox>
+                    </VBox>
+                </VBox>
+            </VBox>
+        </ScrollPane>
+    </center>
+
+    <bottom>
+        <HBox alignment="CENTER" spacing="20" style="-fx-padding: 15 0 5 0;">
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button fx:id="logoutButton"
+                    prefWidth="140" prefHeight="42"
+                    style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-background-radius: 6; -fx-background-color: #f44336; -fx-text-fill: white;"/>
+            <Region HBox.hgrow="ALWAYS"/>
+        </HBox>
+    </bottom>
+</BorderPane>

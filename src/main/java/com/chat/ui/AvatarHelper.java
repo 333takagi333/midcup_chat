@@ -12,7 +12,7 @@ import javafx.scene.paint.Color;
 public final class AvatarHelper {
 
     // 服务器基础URL配置
-    private static final String SERVER_BASE_URL = "http://112.124.108.184:12355/";
+    private static final String SERVER_BASE_URL = "http://localhost:12355/";
 
     private AvatarHelper() {}
 

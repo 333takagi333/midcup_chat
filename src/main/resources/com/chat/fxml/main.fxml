@@ -6,25 +6,52 @@
 <?import javafx.geometry.Insets?>
 <?import java.lang.String?>
 
-<BorderPane fx:id="mainContainer" xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.chat.control.MainControl">
-    <!-- attach stylesheet -->
+<BorderPane fx:id="mainContainer" xmlns="http://javafx.com/javafx/11.0.1"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.chat.control.MainControl"
+            prefWidth="800" prefHeight="600">
 
     <top>
-        <HBox fx:id="topBar" spacing="15" styleClass="top-bar">
-            <!-- Avatar visibility/size is controlled in FXML now -->
-            <ImageView fx:id="avatarImage" fitWidth="40" fitHeight="40" visible="false" />
-            <!-- Username style moved to CSS class -->
-            <Label fx:id="usernameLabel" styleClass="username-label" />
+        <HBox fx:id="topBar" spacing="15" styleClass="top-bar"
+              alignment="CENTER_LEFT">
+            <padding>
+                <Insets top="10" right="15" bottom="10" left="15"/>
+            </padding>
+
+            <!-- 用户头像 -->
+            <ImageView fx:id="avatarImage"
+                       fitWidth="40" fitHeight="40"
+                       style="-fx-border-radius: 20; -fx-background-radius: 20;"/>
+
+            <!-- 用户名 -->
+            <Label fx:id="usernameLabel"
+                   style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+
             <Region HBox.hgrow="ALWAYS" />
-            <!-- Notification button styling moved to CSS class -->
-            <Button fx:id="notificationButton" text="通知" styleClass="notification-button" />
-            <!-- Settings menu items moved into FXML so controller doesn't need to create them at runtime -->
-            <MenuButton fx:id="settingsMenu" text="菜单" styleClass="settings-menu">
+
+            <!-- 通知按钮 -->
+            <Button fx:id="notificationButton" text="通知"
+                    prefWidth="60" prefHeight="35"/>
+
+            <!-- 主菜单 -->
+            <MenuButton fx:id="mainMenu" text="菜单"
+                        prefWidth="60" prefHeight="35">
                 <items>
-                    <MenuItem fx:id="profileMenuItem" text="个人资料" onAction="#showUserProfile" />
-                    <MenuItem fx:id="settingsMenuItem" text="设置" onAction="#showSettings" />
-                    <SeparatorMenuItem />
-                    <MenuItem fx:id="logoutMenuItem" text="退出登录" onAction="#logout" />
+                    <!-- 个人资料 -->
+                    <MenuItem fx:id="profileMenuItem" text="个人资料"
+                              onAction="#showUserProfile"/>
+
+                    <!-- 添加好友 -->
+                    <MenuItem fx:id="addFriendMenuItem" text="添加好友"
+                              onAction="#showAddFriendDialog"/>
+
+                    <!-- 创建群聊 -->
+                    <MenuItem fx:id="createGroupMenuItem" text="创建群聊"
+                              onAction="#showCreateGroupDialog"/>
+
+                    <!-- 设置 -->
+                    <MenuItem fx:id="settingsMenuItem" text="设置"
+                              onAction="#showSettings"/>
                 </items>
             </MenuButton>
         </HBox>
@@ -36,7 +63,7 @@
                 <content>
                     <ListView fx:id="messagesListView">
                         <placeholder>
-                            <Label text="暂无消息" styleClass="list-placeholder" />
+                            <Label text="暂无消息" />
                         </placeholder>
                     </ListView>
                 </content>
@@ -45,7 +72,7 @@
                 <content>
                     <ListView fx:id="contactsListView">
                         <placeholder>
-                            <Label text="暂无联系人" styleClass="list-placeholder" />
+                            <Label text="暂无联系人" />
                         </placeholder>
                     </ListView>
                 </content>
@@ -54,7 +81,7 @@
                 <content>
                     <ListView fx:id="groupsListView">
                         <placeholder>
-                            <Label text="暂无群聊" styleClass="list-placeholder" />
+                            <Label text="暂无群聊" />
                         </placeholder>
                     </ListView>
                 </content>
