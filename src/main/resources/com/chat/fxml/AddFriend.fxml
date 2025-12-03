@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Font?>
+
+<BorderPane fx:id="mainContainer" xmlns="http://javafx.com/javafx/11.0.1"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.chat.control.AddFriendControl"
+            prefWidth="400" prefHeight="250">
+
+    <padding>
+        <Insets top="20" right="20" bottom="20" left="20"/>
+    </padding>
+
+    <top>
+        <Label fx:id="titleLabel" text="添加好友"
+               style="-fx-font-size: 16px; -fx-font-weight: bold;"
+               BorderPane.alignment="CENTER"/>
+    </top>
+
+    <center>
+        <VBox spacing="15" alignment="CENTER">
+            <VBox spacing="5">
+                <Label text="好友ID:" style="-fx-font-size: 14px;"/>
+                <TextField fx:id="friendIdField"
+                           promptText="请输入好友的用户ID"
+                           prefWidth="300" prefHeight="35"/>
+            </VBox>
+
+            <Label text="提示：输入对方的用户ID即可发送好友请求"
+                   style="-fx-font-size: 12px; -fx-text-fill: #666;"/>
+        </VBox>
+    </center>
+
+    <bottom>
+        <HBox spacing="20" alignment="CENTER_RIGHT">
+            <Button fx:id="cancelButton" text="取消"
+                    prefWidth="80" prefHeight="35"
+                    style="-fx-background-color: #f0f0f0; -fx-border-color: #ccc;"/>
+            <Button fx:id="addButton" text="添加"
+                    prefWidth="80" prefHeight="35"
+                    style="-fx-background-color: #2196F3; -fx-text-fill: white;"/>
+        </HBox>
+    </bottom>
+</BorderPane>

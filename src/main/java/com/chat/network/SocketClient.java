@@ -107,6 +107,9 @@ public class SocketClient {
         return sendRequest(request);
     }
 
+    public String sendChangePasswordRequest(ChangePasswordRequest request) {
+        return sendRequest(request);
+    }
     /**
      * 发送用户信息请求
      */
