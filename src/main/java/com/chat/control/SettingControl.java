@@ -86,7 +86,7 @@ public class SettingControl implements Initializable {
             String newPassword = newPasswordField.getText();
             String confirmPassword = confirmPasswordField.getText();
 
-            // 基本验证
+            // 验证输入
             if (oldPassword.isEmpty()) {
                 showPasswordStatus("请输入当前密码", true);
                 oldPasswordField.requestFocus();
@@ -131,11 +131,11 @@ public class SettingControl implements Initializable {
         }
 
         try {
-            // 创建修改密码请求对象
+            // 创建修改密码请求
             ChangePasswordRequest request = new ChangePasswordRequest(userId, oldPassword, newPassword);
 
-            // 使用专门的发送方法
-            String response = socketClient.sendChangePasswordRequest(request);
+            // 发送请求到服务器
+            String response = socketClient.sendRequest(request);
 
             if (response != null) {
                 JsonObject responseObj = gson.fromJson(response, JsonObject.class);
@@ -156,7 +156,7 @@ public class SettingControl implements Initializable {
                                 e.printStackTrace();
                             }
 
-                            Platform.runLater(this::performLogoutAfterPasswordReset);
+                            Platform.runLater(() -> performLogoutAfterPasswordReset());
                         }).start();
                     });
                 } else {

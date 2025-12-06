@@ -29,6 +29,16 @@
 
             <Region HBox.hgrow="ALWAYS" />
 
+            <!-- 刷新按钮 -->
+            <Button fx:id="refreshButton" text="刷新"
+                    prefWidth="60" prefHeight="35"
+                    onAction="#handleRefreshClick"
+                    style="-fx-background-color: #2196F3; -fx-text-fill: white;">
+                <tooltip>
+                    <Tooltip text="刷新好友和群组列表 (F5)"/>
+                </tooltip>
+            </Button>
+
             <!-- 通知按钮 -->
             <Button fx:id="notificationButton" text="通知"
                     prefWidth="60" prefHeight="35"/>

@@ -1,9 +1,11 @@
+// 简化版本，只保留基本结构
 package com.chat.protocol;
 
 /**
  * 修改密码请求协议
  */
 public class ChangePasswordRequest {
+    private String type = MessageType.CHANGE_PASSWORD_REQUEST;
     private String userId;
     private String oldPassword;
     private String newPassword;
@@ -20,6 +22,14 @@ public class ChangePasswordRequest {
     }
 
     // Getter 和 Setter 方法
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
     public String getUserId() {
         return userId;
     }
@@ -44,12 +54,4 @@ public class ChangePasswordRequest {
         this.newPassword = newPassword;
     }
 
-    @Override
-    public String toString() {
-        return "ChangePasswordRequest{" +
-                "userId='" + userId + '\'' +
-                ", oldPassword='" + (oldPassword != null ? "[PROTECTED]" : "null") + '\'' +
-                ", newPassword='" + (newPassword != null ? "[PROTECTED]" : "null") + '\'' +
-                '}';
-    }
 }
