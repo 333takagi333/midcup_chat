@@ -1,8 +1,10 @@
 package com.chat.control;
 
 import com.chat.network.SocketClient;
-import com.chat.protocol.FriendAddRequest;
+import com.chat.protocol.FriendAddResponse;
+import com.chat.service.FriendManagementService;
 import com.chat.ui.DialogHelper;
+import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.Button;
@@ -21,6 +23,7 @@ public class AddFriendControl implements Initializable {
     @FXML private Button cancelButton;
 
     private SocketClient socketClient;
+    private FriendManagementService friendService;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
@@ -37,37 +40,62 @@ public class AddFriendControl implements Initializable {
     private void addFriend() {
         String friendIdStr = friendIdField.getText().trim();
 
-        if (friendIdStr.isEmpty()) {
-            DialogHelper.showError(mainContainer.getScene().getWindow(), "请输入好友ID");
+        // 使用Service验证输入
+        String validationError = FriendManagementService.validateFriendIdInput(friendIdStr);
+        if (validationError != null) {
+            DialogHelper.showError(mainContainer.getScene().getWindow(), validationError);
             return;
         }
 
-        try {
-            Long targetId = Long.parseLong(friendIdStr);
+        addButton.setDisable(true);
 
-            // 直接发送FriendAddRequest对象，而不是手动转JSON
-            FriendAddRequest request = new FriendAddRequest();
-            request.setToUserId(targetId);
-
-            // 使用socketClient.sendRequest发送对象
-            String response = socketClient.sendRequest(request);
-
-            if (response != null) {
-                DialogHelper.showInfo(mainContainer.getScene().getWindow(), "好友请求已发送");
-                friendIdField.clear();
-                ((Stage) mainContainer.getScene().getWindow()).close();
-            } else {
-                DialogHelper.showError(mainContainer.getScene().getWindow(), "发送好友请求失败");
+        Task<FriendAddResponse> task = new Task<FriendAddResponse>() {
+            @Override
+            protected FriendAddResponse call() {
+                try {
+                    Long targetId = Long.parseLong(friendIdStr);
+                    friendService = new FriendManagementService();
+                    return friendService.sendFriendRequest(socketClient, targetId);
+                } catch (Exception e) {
+                    System.err.println("添加好友失败: " + e.getMessage());
+                    return null;
+                }
             }
-        } catch (NumberFormatException e) {
-            DialogHelper.showError(mainContainer.getScene().getWindow(), "请输入有效的用户ID（数字）");
-        } catch (Exception e) {
-            DialogHelper.showError(mainContainer.getScene().getWindow(), "添加好友失败: " + e.getMessage());
+        };
+
+        task.setOnSucceeded(e -> {
+            addButton.setDisable(false);
+            handleAddFriendResponse(task.getValue());
+        });
+
+        task.setOnFailed(e -> {
+            addButton.setDisable(false);
+            DialogHelper.showError(mainContainer.getScene().getWindow(), "添加好友失败");
+        });
+
+        new Thread(task).start();
+    }
+
+    private void handleAddFriendResponse(FriendAddResponse response) {
+        if (response != null && response.isSuccess()) {
+            DialogHelper.showInfo(mainContainer.getScene().getWindow(), "好友请求已发送");
+            friendIdField.clear();
+            closeWindow();
+        } else {
+            String errorMsg = "发送好友请求失败";
+            if (response != null && response.getMessage() != null) {
+                errorMsg += ": " + response.getMessage();
+            }
+            DialogHelper.showError(mainContainer.getScene().getWindow(), errorMsg);
         }
     }
 
     @FXML
     private void cancel() {
+        closeWindow();
+    }
+
+    private void closeWindow() {
         ((Stage) mainContainer.getScene().getWindow()).close();
     }
 

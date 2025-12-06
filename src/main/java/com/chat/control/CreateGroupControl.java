@@ -1,8 +1,10 @@
 package com.chat.control;
 
 import com.chat.network.SocketClient;
-import com.chat.protocol.GroupCreateRequest;
+import com.chat.protocol.GroupCreateResponse;
+import com.chat.service.GroupManagementService;
 import com.chat.ui.DialogHelper;
+import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*;
@@ -21,6 +23,7 @@ public class CreateGroupControl implements Initializable {
     @FXML private Label titleLabel;
 
     private SocketClient socketClient;
+    private GroupManagementService groupService;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
@@ -43,39 +46,63 @@ public class CreateGroupControl implements Initializable {
     private void createGroup() {
         String groupName = groupNameField.getText().trim();
 
-        if (groupName.isEmpty()) {
-            DialogHelper.showError(mainContainer.getScene().getWindow(), "请输入群聊名称");
+        // 使用Service验证输入
+        String validationError = GroupManagementService.validateGroupNameInput(groupName);
+        if (validationError != null) {
+            DialogHelper.showError(mainContainer.getScene().getWindow(), validationError);
             groupNameField.requestFocus();
             return;
         }
 
-        if (groupName.length() > 20) {
-            DialogHelper.showError(mainContainer.getScene().getWindow(), "群聊名称不能超过20个字符");
-            groupNameField.requestFocus();
-            return;
-        }
+        createButton.setDisable(true);
 
-        try {
-            // 直接发送GroupCreateRequest对象
-            GroupCreateRequest request = new GroupCreateRequest(groupName);
-
-            // 使用socketClient.sendRequest发送对象
-            String response = socketClient.sendRequest(request);
-
-            if (response != null) {
-                DialogHelper.showInfo(mainContainer.getScene().getWindow(), "群聊创建成功");
-                groupNameField.clear();
-                ((Stage) mainContainer.getScene().getWindow()).close();
-            } else {
-                DialogHelper.showError(mainContainer.getScene().getWindow(), "创建群聊失败：无响应");
+        Task<GroupCreateResponse> task = new Task<GroupCreateResponse>() {
+            @Override
+            protected GroupCreateResponse call() {
+                try {
+                    groupService = new GroupManagementService();
+                    return groupService.createGroup(socketClient, groupName);
+                } catch (Exception e) {
+                    System.err.println("创建群聊失败: " + e.getMessage());
+                    return null;
+                }
             }
-        } catch (Exception e) {
-            DialogHelper.showError(mainContainer.getScene().getWindow(), "创建群聊失败: " + e.getMessage());
+        };
+
+        task.setOnSucceeded(e -> {
+            createButton.setDisable(false);
+            handleCreateGroupResponse(task.getValue());
+        });
+
+        task.setOnFailed(e -> {
+            createButton.setDisable(false);
+            DialogHelper.showError(mainContainer.getScene().getWindow(), "创建群聊失败");
+        });
+
+        new Thread(task).start();
+    }
+
+    private void handleCreateGroupResponse(GroupCreateResponse response) {
+        if (response != null && response.isSuccess()) {
+            DialogHelper.showInfo(mainContainer.getScene().getWindow(),
+                    "群聊创建成功: " + response.getGroupName());
+            groupNameField.clear();
+            closeWindow();
+        } else {
+            String errorMsg = "创建群聊失败";
+            if (response != null && response.getMessage() != null) {
+                errorMsg += ": " + response.getMessage();
+            }
+            DialogHelper.showError(mainContainer.getScene().getWindow(), errorMsg);
         }
     }
 
     @FXML
     private void cancel() {
+        closeWindow();
+    }
+
+    private void closeWindow() {
         ((Stage) mainContainer.getScene().getWindow()).close();
     }
 
