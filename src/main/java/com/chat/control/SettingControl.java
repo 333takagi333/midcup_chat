@@ -1,10 +1,8 @@
 package com.chat.control;
 
 import com.chat.network.SocketClient;
-import com.chat.protocol.ChangePasswordRequest;
+import com.chat.service.RegistrationService;
 import com.chat.ui.DialogHelper;
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*;
@@ -30,7 +28,7 @@ public class SettingControl implements Initializable {
     private SocketClient socketClient;
     private String userId;
     private String username;
-    private final Gson gson = new Gson();
+    private RegistrationService registrationService;
     private Runnable logoutCallback;
     private Consumer<Boolean> passwordResetCallback;
 
@@ -41,114 +39,92 @@ public class SettingControl implements Initializable {
     }
 
     private void setupUI() {
-        try {
-            // 设置密码相关字段提示文本
-            if (oldPasswordField != null) {
-                oldPasswordField.setPromptText("请输入当前密码");
-            }
-            if (newPasswordField != null) {
-                newPasswordField.setPromptText("请输入新密码");
-            }
-            if (confirmPasswordField != null) {
-                confirmPasswordField.setPromptText("请再次输入新密码");
-            }
-
-            // 设置状态标签
-            if (passwordStatusLabel != null) {
-                passwordStatusLabel.setText("");
-                passwordStatusLabel.setStyle("-fx-font-size: 13px;");
-            }
-
-        } catch (Exception e) {
-            System.err.println("Error in setupUI: " + e.getMessage());
+        if (oldPasswordField != null) {
+            oldPasswordField.setPromptText("请输入当前密码");
+        }
+        if (newPasswordField != null) {
+            newPasswordField.setPromptText("请输入新密码");
+        }
+        if (confirmPasswordField != null) {
+            confirmPasswordField.setPromptText("请再次输入新密码");
+        }
+        if (passwordStatusLabel != null) {
+            passwordStatusLabel.setText("");
+            passwordStatusLabel.setStyle("-fx-font-size: 13px;");
         }
     }
 
     private void setupEventHandlers() {
-        try {
-            if (updatePasswordButton != null) {
-                updatePasswordButton.setOnAction(event -> updatePassword());
-            }
-            if (logoutButton != null) {
-                logoutButton.setOnAction(event -> logout());
-            }
-        } catch (Exception e) {
-            System.err.println("Error in setupEventHandlers: " + e.getMessage());
+        if (updatePasswordButton != null) {
+            updatePasswordButton.setOnAction(event -> updatePassword());
+        }
+        if (logoutButton != null) {
+            logoutButton.setOnAction(event -> logout());
         }
     }
-
-    // ========== 修改密码功能 ==========
 
     @FXML
     private void updatePassword() {
-        try {
-            String oldPassword = oldPasswordField.getText();
-            String newPassword = newPasswordField.getText();
-            String confirmPassword = confirmPasswordField.getText();
+        String oldPassword = oldPasswordField.getText();
+        String newPassword = newPasswordField.getText();
+        String confirmPassword = confirmPasswordField.getText();
 
-            // 验证输入
-            if (oldPassword.isEmpty()) {
-                showPasswordStatus("请输入当前密码", true);
-                oldPasswordField.requestFocus();
-                return;
-            }
-
-            if (newPassword.isEmpty()) {
-                showPasswordStatus("请输入新密码", true);
-                newPasswordField.requestFocus();
-                return;
-            }
-
-            if (confirmPassword.isEmpty()) {
-                showPasswordStatus("请确认新密码", true);
-                confirmPasswordField.requestFocus();
-                return;
-            }
-
-            if (newPassword.equals(oldPassword)) {
-                showPasswordStatus("新密码不能与当前密码相同", true);
-                newPasswordField.requestFocus();
-                return;
-            }
-
-            if (!newPassword.equals(confirmPassword)) {
-                showPasswordStatus("两次输入的新密码不一致", true);
-                confirmPasswordField.requestFocus();
-                return;
-            }
-
-            // 验证通过，执行密码修改
-            changePasswordOnServer(oldPassword, newPassword);
-        } catch (Exception e) {
-            showPasswordStatus("操作失败: " + e.getMessage(), true);
+        // 验证输入
+        if (oldPassword.isEmpty()) {
+            showPasswordStatus("请输入当前密码", true);
+            oldPasswordField.requestFocus();
+            return;
         }
+        if (newPassword.isEmpty()) {
+            showPasswordStatus("请输入新密码", true);
+            newPasswordField.requestFocus();
+            return;
+        }
+        if (confirmPassword.isEmpty()) {
+            showPasswordStatus("请确认新密码", true);
+            confirmPasswordField.requestFocus();
+            return;
+        }
+        if (newPassword.equals(oldPassword)) {
+            showPasswordStatus("新密码不能与当前密码相同", true);
+            newPasswordField.requestFocus();
+            return;
+        }
+        if (!newPassword.equals(confirmPassword)) {
+            showPasswordStatus("两次输入的新密码不一致", true);
+            confirmPasswordField.requestFocus();
+            return;
+        }
+
+        // 调用Service修改密码
+        updatePasswordOnServer(oldPassword, newPassword);
     }
 
-    private void changePasswordOnServer(String oldPassword, String newPassword) {
+    private void updatePasswordOnServer(String oldPassword, String newPassword) {
         if (!checkConnection()) {
             showPasswordStatus("网络连接失败，请检查连接", true);
             return;
         }
 
-        try {
-            // 创建修改密码请求
-            ChangePasswordRequest request = new ChangePasswordRequest(userId, oldPassword, newPassword);
+        updatePasswordButton.setDisable(true);
 
-            // 发送请求到服务器
-            String response = socketClient.sendRequest(request);
+        new Thread(() -> {
+            try {
+                registrationService = new RegistrationService();
+                boolean success = registrationService.changePassword(
+                        socketClient, userId, oldPassword, newPassword);
 
-            if (response != null) {
-                JsonObject responseObj = gson.fromJson(response, JsonObject.class);
-                if (responseObj.has("success") && responseObj.get("success").getAsBoolean()) {
-                    showPasswordStatus("密码修改成功", false);
-                    clearPasswordFields();
+                Platform.runLater(() -> {
+                    updatePasswordButton.setDisable(false);
 
-                    // 密码修改成功后，显示提示并执行退出
-                    Platform.runLater(() -> {
+                    if (success) {
+                        showPasswordStatus("密码修改成功", false);
+                        clearPasswordFields();
+
                         DialogHelper.showInfo(mainContainer.getScene().getWindow(),
                                 "密码修改成功！\n系统将自动退出到登录界面。");
 
-                        // 延迟1秒后执行退出
+                        // 延迟后执行退出
                         new Thread(() -> {
                             try {
                                 Thread.sleep(1000);
@@ -158,42 +134,37 @@ public class SettingControl implements Initializable {
 
                             Platform.runLater(() -> performLogoutAfterPasswordReset());
                         }).start();
-                    });
-                } else {
-                    String errorMsg = responseObj.has("message") ?
-                            responseObj.get("message").getAsString() : "密码修改失败";
-                    showPasswordStatus(errorMsg, true);
-                    oldPasswordField.clear();
-                    oldPasswordField.requestFocus();
-                }
-            } else {
-                showPasswordStatus("服务器无响应，请稍后重试", true);
+                    } else {
+                        showPasswordStatus("密码修改失败", true);
+                        oldPasswordField.clear();
+                        oldPasswordField.requestFocus();
+                    }
+                });
+            } catch (Exception e) {
+                Platform.runLater(() -> {
+                    updatePasswordButton.setDisable(false);
+                    showPasswordStatus("密码修改失败: " + e.getMessage(), true);
+                });
             }
-        } catch (Exception e) {
-            showPasswordStatus("密码修改失败: " + e.getMessage(), true);
-        }
+        }).start();
     }
 
     private void performLogoutAfterPasswordReset() {
         try {
-            // 断开网络连接
             if (socketClient != null) {
                 socketClient.disconnect();
             }
 
-            // 通知主窗口关闭
             if (passwordResetCallback != null) {
                 passwordResetCallback.accept(true);
             }
 
-            // 关闭当前设置窗口
             Platform.runLater(() -> {
                 Stage stage = (Stage) mainContainer.getScene().getWindow();
                 if (stage != null && stage.isShowing()) {
                     stage.close();
                 }
 
-                // 调用退出回调返回到登录界面
                 if (logoutCallback != null) {
                     logoutCallback.run();
                 }
@@ -227,8 +198,6 @@ public class SettingControl implements Initializable {
         return socketClient != null && socketClient.isConnected();
     }
 
-    // ========== 退出登录功能 ==========
-
     @FXML
     private void logout() {
         try {
@@ -244,12 +213,10 @@ public class SettingControl implements Initializable {
     }
 
     private void performNormalLogout() {
-        // 断开连接
         if (socketClient != null) {
             socketClient.disconnect();
         }
 
-        // 关闭窗口并执行回调
         Platform.runLater(() -> {
             Stage stage = (Stage) mainContainer.getScene().getWindow();
             if (stage != null && stage.isShowing()) {
@@ -262,14 +229,11 @@ public class SettingControl implements Initializable {
         });
     }
 
-    // ========== Setter 方法 ==========
-
     public void setUserInfo(String username, String userId) {
         this.username = username;
         this.userId = userId;
 
         Platform.runLater(() -> {
-            // 设置窗口标题
             if (mainContainer != null && mainContainer.getScene() != null) {
                 Stage stage = (Stage) mainContainer.getScene().getWindow();
                 if (stage != null) {
@@ -277,7 +241,6 @@ public class SettingControl implements Initializable {
                 }
             }
 
-            // 设置用户名标签
             if (usernameLabel != null) {
                 usernameLabel.setText("用户: " + username);
             }

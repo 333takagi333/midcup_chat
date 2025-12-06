@@ -1,10 +1,9 @@
 package com.chat.control;
 
 import com.chat.network.SocketClient;
-import com.chat.protocol.ChatGroupSend;
+import com.chat.service.ChatService;
 import com.chat.ui.AvatarHelper;
 import com.chat.ui.DialogUtil;
-import com.google.gson.Gson;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
@@ -19,7 +18,7 @@ import java.util.Timer;
 import java.util.TimerTask;
 
 /**
- * 群聊界面控制器
+ * 群聊界面控制器 - 仅处理UI交互
  */
 public class ChatGroupControl implements Initializable {
 
@@ -34,7 +33,7 @@ public class ChatGroupControl implements Initializable {
     private SocketClient socketClient;
     private Long userId;
     private Timer messageTimer;
-    private Gson gson = new Gson();
+    private ChatService chatService;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
@@ -46,79 +45,46 @@ public class ChatGroupControl implements Initializable {
         messageInput.setOnAction(event -> sendMessage());
     }
 
-    /**
-     * 设置群聊信息
-     */
-    public void setGroupInfo(String groupId, String groupName, String avatarUrl, SocketClient socketClient, String userId) {
+    public void setGroupInfo(String groupId, String groupName, String avatarUrl,
+                             SocketClient socketClient, String userId) {
         try {
             this.groupId = Long.parseLong(groupId);
             this.groupName = groupName;
             this.groupAvatarUrl = avatarUrl;
             this.socketClient = socketClient;
             this.userId = Long.parseLong(userId);
+            this.chatService = new ChatService();
         } catch (NumberFormatException e) {
             System.err.println("ID格式错误: " + e.getMessage());
             return;
         }
 
-        // 更新UI
         groupNameLabel.setText(groupName);
-        // 使用AvatarHelper加载头像
         AvatarHelper.loadAvatar(groupAvatar, avatarUrl, true, 50);
-
         loadChatHistory();
     }
 
-    /**
-     * 发送消息
-     */
     @FXML
     private void sendMessage() {
         String content = messageInput.getText().trim();
-        if (!content.isEmpty() && socketClient != null && socketClient.isConnected() &&
-                groupId != null && userId != null) {
-
-            ChatGroupSend message = new ChatGroupSend();
-            message.setGroupId(groupId);
-            message.setFromUserId(userId);
-            message.setContent(content);
-
-            boolean sent = socketClient.sendGroupMessage(message);
-            if (sent) {
-                chatArea.appendText("我: " + content + "\n");
-                messageInput.clear();
-            } else {
-                DialogUtil.showError(chatArea.getScene().getWindow(), "发送失败，请检查网络连接");
-            }
-        } else {
-            if (groupId == null || userId == null) {
-                DialogUtil.showError(chatArea.getScene().getWindow(), "群聊信息不完整");
-            }
+        if (content.isEmpty() || socketClient == null || !socketClient.isConnected()
+                || groupId == null || userId == null) {
+            return;
         }
-    }
 
-    /**
-     * 发送文件消息
-     */
-    public void sendFileMessage(String filePath, String fileName, long fileSize) {
-        if (socketClient != null && socketClient.isConnected() && groupId != null && userId != null) {
-            ChatGroupSend message = new ChatGroupSend();
-            message.setGroupId(groupId);
-            message.setFromUserId(userId);
-            message.setContentType("FILE");
-            message.setFileName(fileName);
-            message.setFileSize(fileSize);
+        // 使用Service发送消息
+        boolean sent = chatService.sendGroupMessage(socketClient, groupId, userId, content);
 
-            boolean sent = socketClient.sendGroupMessage(message);
-            if (sent) {
-                chatArea.appendText("我: [文件] " + fileName + "\n");
-            }
+        if (sent) {
+            chatArea.appendText("我: " + content + "\n");
+            messageInput.clear();
+        } else {
+            DialogUtil.showError(chatArea.getScene().getWindow(), "发送失败，请检查网络连接");
         }
     }
 
     private void loadChatHistory() {
         chatArea.appendText("--- 欢迎来到 " + groupName + " ---\n");
-        // TODO: 从服务器加载历史消息
     }
 
     private void startMessageListener() {
@@ -127,7 +93,7 @@ public class ChatGroupControl implements Initializable {
             @Override
             public void run() {
                 if (socketClient != null && socketClient.isConnected()) {
-                    String message = socketClient.receiveMessage();
+                    String message = chatService.receiveMessage(socketClient);
                     if (message != null) {
                         Platform.runLater(() -> handleReceivedMessage(message));
                     }
@@ -137,38 +103,45 @@ public class ChatGroupControl implements Initializable {
     }
 
     private void handleReceivedMessage(String messageJson) {
+        // 简化的消息处理，实际可以移到Service层
+        if (messageJson.contains("\"groupId\":" + groupId)) {
+            String content = extractMessageContent(messageJson);
+            if (content != null) {
+                String sender = extractSender(messageJson);
+                chatArea.appendText(sender + ": " + content + "\n");
+            }
+        }
+    }
+
+    private String extractMessageContent(String json) {
         try {
-            ChatGroupSend receivedMessage = gson.fromJson(messageJson, ChatGroupSend.class);
-            if (receivedMessage != null && groupId.equals(receivedMessage.getGroupId())) {
-                String senderName = getSenderName(receivedMessage.getFromUserId());
-                String content = formatMessageContent(receivedMessage);
-                chatArea.appendText(senderName + ": " + content + "\n");
+            int start = json.indexOf("\"content\":\"") + 10;
+            int end = json.indexOf("\"", start);
+            if (start > 10 && end > start) {
+                return json.substring(start, end);
             }
         } catch (Exception e) {
-            System.err.println("解析群消息失败: " + e.getMessage());
+            System.err.println("提取消息内容失败: " + e.getMessage());
         }
+        return null;
     }
 
-    /**
-     * 根据用户ID获取发送者名称
-     */
-    private String getSenderName(Long senderId) {
-        if (senderId.equals(userId)) {
-            return "我";
-        } else {
-            return "用户" + senderId;
+    private String extractSender(String json) {
+        try {
+            int start = json.indexOf("\"fromUserId\":") + 13;
+            int end = json.indexOf(",", start);
+            if (start > 13 && end > start) {
+                String senderId = json.substring(start, end).trim();
+                if (senderId.equals(userId.toString())) {
+                    return "我";
+                } else {
+                    return "用户" + senderId;
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("提取发送者失败: " + e.getMessage());
         }
-    }
-
-    /**
-     * 格式化消息内容
-     */
-    private String formatMessageContent(ChatGroupSend message) {
-        if ("FILE".equals(message.getContentType())) {
-            return "[文件] " + (message.getFileName() != null ? message.getFileName() : "未知文件");
-        } else {
-            return message.getContent();
-        }
+        return "未知用户";
     }
 
     public void cleanup() {
