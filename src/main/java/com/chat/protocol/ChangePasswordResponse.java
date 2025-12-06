@@ -4,6 +4,7 @@ package com.chat.protocol;
  * 修改密码响应协议
  */
 public class ChangePasswordResponse {
+    private String type = MessageType.CHANGE_PASSWORD_RESPONSE; // 使用常量
     private boolean success;
     private String message;
     private String timestamp;
@@ -20,6 +21,14 @@ public class ChangePasswordResponse {
     }
 
     // Getter 和 Setter 方法
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
     public boolean isSuccess() {
         return success;
     }
@@ -44,12 +53,4 @@ public class ChangePasswordResponse {
         this.timestamp = timestamp;
     }
 
-    @Override
-    public String toString() {
-        return "ChangePasswordResponse{" +
-                "success=" + success +
-                ", message='" + message + '\'' +
-                ", timestamp='" + timestamp + '\'' +
-                '}';
-    }
 }

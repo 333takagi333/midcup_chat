@@ -46,6 +46,7 @@ public class MainControl implements Initializable {
     @FXML private ListView<FriendItem> contactsListView;
     @FXML private ListView<GroupItem> groupsListView;
     @FXML private MenuButton mainMenu;
+    @FXML private Button refreshButton; // 刷新按钮
 
     private String username;
     private String userId;
@@ -96,6 +97,11 @@ public class MainControl implements Initializable {
 
         // 初始化通知按钮
         updateNotificationButton();
+
+        // 设置刷新按钮样式
+        if (refreshButton != null) {
+            refreshButton.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white; -fx-font-weight: bold;");
+        }
     }
 
     private void setupDataBinding() {
@@ -132,6 +138,150 @@ public class MainControl implements Initializable {
         if (notificationButton != null) {
             notificationButton.setOnAction(event -> showNotifications());
         }
+
+        // 刷新按钮事件处理
+        if (refreshButton != null) {
+            refreshButton.setOnAction(event -> handleRefreshClick());
+        }
+    }
+    // ========== 刷新功能 ==========
+
+    /**
+     * 刷新按钮点击处理
+     */
+    @FXML
+    private void handleRefreshClick() {
+        if (!isConnected()) {
+            DialogHelper.showError(mainContainer.getScene().getWindow(), "未连接到服务器");
+            return;
+        }
+
+        System.out.println("[MainControl] 用户点击刷新按钮");
+
+        // 显示刷新状态
+        showRefreshStatus("刷新");
+
+        // 刷新所有数据
+        refreshAllDataWithFeedback();
+    }
+
+    /**
+     * 带反馈的刷新所有数据
+     */
+    private void refreshAllDataWithFeedback() {
+        Platform.runLater(() -> {
+            try {
+                // 保存刷新前的状态
+                int oldFriendCount = stateService.getFriendItems().size();
+                int oldGroupCount = stateService.getGroupItems().size();
+
+                System.out.println("[MainControl] 刷新前好友数: " + oldFriendCount + ", 群组数: " + oldGroupCount);
+
+                // 刷新好友列表
+                stateService.loadFriendsFromServer(socketClient, friendService);
+
+                // 刷新群组列表
+                stateService.loadGroupsFromServer(socketClient, groupService);
+
+                // 获取刷新后的状态
+                int newFriendCount = stateService.getFriendItems().size();
+                int newGroupCount = stateService.getGroupItems().size();
+
+                System.out.println("[MainControl] 刷新后好友数: " + newFriendCount + ", 群组数: " + newGroupCount);
+
+                // 计算变化
+                int friendDelta = newFriendCount - oldFriendCount;
+                int groupDelta = newGroupCount - oldGroupCount;
+
+                // 强制刷新UI显示
+                contactsListView.refresh();
+                groupsListView.refresh();
+
+                // 显示成功提示
+                showRefreshStatus("刷新完成!");
+
+            } catch (Exception e) {
+                System.err.println("[MainControl] 刷新数据失败: " + e.getMessage());
+                showRefreshStatus("刷新失败");
+                DialogHelper.showError(mainContainer.getScene().getWindow(), "刷新失败: " + e.getMessage());
+            }
+        });
+    }
+
+    /**
+     * 显示刷新状态
+     */
+    private void showRefreshStatus(String status) {
+        if (refreshButton != null) {
+            String originalText = refreshButton.getText();
+            refreshButton.setText(status);
+            refreshButton.setDisable(true);
+
+            // 1.5秒后恢复按钮状态
+            new Thread(() -> {
+                try {
+                    Thread.sleep(1500);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+
+                Platform.runLater(() -> {
+                    refreshButton.setText(originalText);
+                    refreshButton.setDisable(false);
+                });
+            }).start();
+        }
+    }
+    /**
+     * 刷新好友列表（供外部调用）
+     */
+    public void refreshFriends() {
+        if (!isConnected()) {
+            System.out.println("[MainControl] 无法刷新好友列表：未连接到服务器");
+            return;
+        }
+
+        Platform.runLater(() -> {
+            try {
+                System.out.println("[MainControl] 刷新好友列表...");
+                stateService.loadFriendsFromServer(socketClient, friendService);
+
+                // 强制刷新UI
+                contactsListView.refresh();
+
+                System.out.println("[MainControl] 好友列表刷新完成");
+
+            } catch (Exception e) {
+                System.err.println("[MainControl] 刷新好友列表失败: " + e.getMessage());
+                e.printStackTrace();
+            }
+        });
+    }
+
+    /**
+     * 刷新群组列表（供外部调用）
+     */
+    public void refreshGroups() {
+        if (!isConnected()) {
+            System.out.println("[MainControl] 无法刷新群组列表：未连接到服务器");
+            return;
+        }
+
+        Platform.runLater(() -> {
+            try {
+                System.out.println("[MainControl] 刷新群组列表...");
+                stateService.loadGroupsFromServer(socketClient, groupService);
+
+                // 强制刷新UI
+                groupsListView.refresh();
+
+                System.out.println("[MainControl] 群组列表刷新完成");
+
+            } catch (Exception e) {
+                System.err.println("[MainControl] 刷新群组列表失败: " + e.getMessage());
+                e.printStackTrace();
+            }
+        });
     }
 
     // ========== 通知管理方法 ==========
@@ -537,6 +687,11 @@ public class MainControl implements Initializable {
     // ========== UI 操作方法 ==========
     @FXML
     private void showNotifications() {
+        if (!isConnected()) {
+            DialogHelper.showError(mainContainer.getScene().getWindow(), "未连接到服务器");
+            return;
+        }
+
         // 打开通知中心窗口
         openManagedWindow("/com/chat/fxml/Notifications.fxml",
                 controller -> {
@@ -640,6 +795,7 @@ public class MainControl implements Initializable {
                 },
                 "设置 - " + username, 500, 450, SETTINGS_WINDOW_KEY);
     }
+
     /**
      * 显示登录界面
      */
@@ -660,6 +816,7 @@ public class MainControl implements Initializable {
             e.printStackTrace();
         }
     }
+
     // ========== 头像加载方法 ==========
     private void loadUserAvatar() {
         if (avatarImage == null) return;
