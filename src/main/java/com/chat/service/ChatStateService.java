@@ -18,10 +18,17 @@ import java.util.List;
 /**
  * Manages the UI state, holding the observable lists for the views.
  */
-public class ChatStateService {
+public class ChatStateService implements MessageBroadcaster.ChatListUpdateListener {
     private final ObservableList<ChatItem> chatItems = FXCollections.observableArrayList();
     private final ObservableList<FriendItem> friendItems = FXCollections.observableArrayList();
     private final ObservableList<GroupItem> groupItems = FXCollections.observableArrayList();
+
+    private final MessageBroadcaster broadcaster = MessageBroadcaster.getInstance();
+
+    public ChatStateService() {
+        // 注册为聊天列表监听器
+        broadcaster.registerChatListListener(this);
+    }
 
     public ObservableList<ChatItem> getChatItems() {
         return chatItems;
@@ -33,6 +40,34 @@ public class ChatStateService {
 
     public ObservableList<GroupItem> getGroupItems() {
         return groupItems;
+    }
+
+    @Override
+    public void onNewPrivateMessage(Long contactId, String contactName, String content, long timestamp, Long messageId) {
+        System.out.println("[ChatStateService] 收到私聊消息: " + contactName + ": " + content);
+
+        upsertChat(
+                contactId.toString(),
+                contactName,
+                null,
+                content,
+                true,
+                false
+        );
+    }
+
+    @Override
+    public void onNewGroupMessage(Long groupId, String groupName, String content, long timestamp, Long messageId) {
+        System.out.println("[ChatStateService] 收到群聊消息: " + groupName + ": " + content);
+
+        upsertChat(
+                groupId.toString(),
+                groupName,
+                null,
+                content,
+                true,
+                true
+        );
     }
 
     /**
@@ -144,11 +179,26 @@ public class ChatStateService {
         } else {
             chatItems.add(0, newItem);
         }
+
+        System.out.println("[ChatStateService] 更新聊天列表: " + displayName + " - " + messageText);
     }
 
+    /**
+     * 清空所有数据
+     */
     public void clearAll() {
         chatItems.clear();
         friendItems.clear();
         groupItems.clear();
+        System.out.println("[ChatStateService] 已清空所有数据");
+    }
+
+    /**
+     * 清理时取消注册
+     */
+    public void cleanup() {
+        broadcaster.unregisterChatListListener(this);
+        clearAll();
+        System.out.println("[ChatStateService] 已清理并取消注册");
     }
 }
