@@ -49,4 +49,25 @@ public final class MessageType {
 
     public static final String CHANGE_PASSWORD_REQUEST = "change_password_request";
     public static final String CHANGE_PASSWORD_RESPONSE = "change_password_response";
+
+    // 好友详情相关
+    public static final String FRIEND_DETAIL_REQUEST = "friend_detail_request";
+    public static final String FRIEND_DETAIL_RESPONSE = "friend_detail_response";
+    public static final String DELETE_FRIEND_REQUEST = "delete_friend_request";
+    public static final String DELETE_FRIEND_RESPONSE = "delete_friend_response";
+
+    // 群聊详情相关
+    public static final String GROUP_DETAIL_REQUEST = "group_detail_request";
+    public static final String GROUP_DETAIL_RESPONSE = "group_detail_response";
+    public static final String EXIT_GROUP_REQUEST = "exit_group_request";
+    public static final String EXIT_GROUP_RESPONSE = "exit_group_response";
+    public static final String UPDATE_NICKNAME_REQUEST = "update_nickname_request";
+    public static final String UPDATE_NICKNAME_RESPONSE = "update_nickname_response";
+    public static final String GROUP_FILE_LIST_REQUEST = "group_file_list_request";
+    public static final String GROUP_FILE_LIST_RESPONSE = "group_file_list_response";
+    public static final String GROUP_FILE_DOWNLOAD_REQUEST = "group_file_download_request";
+    public static final String GROUP_FILE_DOWNLOAD_RESPONSE = "group_file_download_response";
+    public static final String GROUP_NOTICE_UPDATE_REQUEST = "group_notice_update_request";
+    public static final String GROUP_NOTICE_UPDATE_RESPONSE = "group_notice_update_response";
+
 }

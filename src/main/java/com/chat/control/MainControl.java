@@ -4,13 +4,11 @@ import com.chat.network.SocketClient;
 import com.chat.model.ChatItem;
 import com.chat.model.FriendItem;
 import com.chat.model.GroupItem;
-import com.chat.protocol.*;
 import com.chat.service.*;
+import  com.chat.protocol.*;
 import com.chat.ui.DialogHelper;
 import com.chat.ui.AvatarHelper;
 import com.chat.ui.CellFactoryHelper;
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
@@ -19,12 +17,9 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
 
 import java.net.URL;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.function.Consumer;
 
 /**
  * 主界面控制器 - 仅处理UI交互
@@ -45,7 +40,6 @@ public class MainControl implements Initializable {
     private String userId;
     private SocketClient socketClient;
     private Timer messageTimer;
-    private final Gson gson = new Gson();
     private boolean dataLoaded = false;
     private int notificationCount = 0;
 
@@ -54,9 +48,8 @@ public class MainControl implements Initializable {
     private final MainDataService mainDataService = new MainDataService();
     private final NotificationManagementService notificationService = new NotificationManagementService();
     private final WindowManagementService windowService = new WindowManagementService();
+    private final ChatService chatService = new ChatService();
     private UserProfileService userProfileService;
-
-    private final Map<String, Consumer<String>> messageHandlers = new HashMap<>();
 
     // 窗口键常量
     private static final String USER_PROFILE_WINDOW_KEY = "user_profile";
@@ -70,13 +63,65 @@ public class MainControl implements Initializable {
         setupUI();
         setupDataBinding();
         setupEventHandlers();
-        registerMessageHandlers();
-        loadUserAvatar();
 
         Platform.runLater(() -> {
-            startMessageListener();
-            tryLoadInitialDataIfReady();
+            // 设置当前用户ID到MessageBroadcaster
+            if (userId != null && !userId.isEmpty()) {
+                try {
+                    Long userIdLong = Long.parseLong(userId);
+                    MessageBroadcaster.getInstance().setCurrentUserId(userIdLong);
+                    System.out.println("[MainControl] 已设置当前用户ID到MessageBroadcaster: " + userIdLong);
+                } catch (NumberFormatException e) {
+                    System.err.println("用户ID格式错误: " + e.getMessage());
+                }
+            }
+
+            // 先设置默认头像
+            AvatarHelper.setDefaultAvatar(avatarImage, false, 40);
+
+            // 设置窗口关闭事件处理器
+            setupWindowCloseHandler();
+
+            // 延迟一会儿再尝试从服务器加载
+            new Timer().schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    Platform.runLater(() -> {
+                        startMessageListener();
+                        tryLoadInitialDataIfReady();
+
+                        // 尝试加载头像
+                        if (userId != null && !userId.isEmpty()) {
+                            loadUserAvatarWithRetry();
+                        }
+                    });
+                }
+            }, 500); // 延迟500ms
         });
+    }
+
+    /**
+     * 设置窗口关闭事件处理器
+     */
+    private void setupWindowCloseHandler() {
+        if (mainContainer != null && mainContainer.getScene() != null && mainContainer.getScene().getWindow() != null) {
+            javafx.stage.Stage stage = (javafx.stage.Stage) mainContainer.getScene().getWindow();
+            stage.setOnCloseRequest(event -> {
+                System.out.println("[MainControl] 检测到窗口关闭请求，执行清理...");
+
+                // 1. 先执行清理操作
+                cleanup();
+
+                // 2. 强制退出程序
+                System.out.println("[MainControl] 强制退出程序...");
+
+                // 先关闭JavaFX平台
+                Platform.exit();
+
+                // 再退出JVM
+                System.exit(0);
+            });
+        }
     }
 
     private void setupUI() {
@@ -150,7 +195,7 @@ public class MainControl implements Initializable {
 
                 Platform.runLater(() -> {
                     if (result.isSuccess()) {
-                        // 更新ObservableList - 使用修复后的方法名
+                        // 更新ObservableList
                         mainDataService.updateFriendList(stateService.getFriendItems(), result.getFriends());
                         mainDataService.updateGroupList(stateService.getGroupItems(), result.getGroups());
 
@@ -178,7 +223,6 @@ public class MainControl implements Initializable {
         }).start();
     }
 
-
     private void showRefreshStatus(String status) {
         if (refreshButton != null) {
             String originalText = refreshButton.getText();
@@ -200,6 +244,40 @@ public class MainControl implements Initializable {
                 });
             }).start();
         }
+    }
+
+    // ========== 消息监听 ==========
+    private void startMessageListener() {
+        if (messageTimer != null) {
+            messageTimer.cancel();
+            messageTimer = null;
+        }
+
+        messageTimer = new Timer(true);
+        messageTimer.scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() {
+                if (isConnected()) {
+                    try {
+                        String message = socketClient.receiveMessage();
+                        if (message != null && !message.trim().isEmpty()) {
+                            // 使用ChatService处理并广播消息
+                            chatService.processMessage(message);
+                        }
+                    } catch (Exception e) {
+                        System.err.println("消息监听错误: " + e.getMessage());
+                    }
+                }
+            }
+        }, 0, 100);
+    }
+
+    private void stopMessageListener() {
+        if (messageTimer != null) {
+            messageTimer.cancel();
+            messageTimer = null;
+        }
+        windowService.closeAllWindows();
     }
 
     // ========== 通知管理方法 ==========
@@ -304,7 +382,6 @@ public class MainControl implements Initializable {
             MainDataService.RefreshResult result = mainDataService.refreshAll(socketClient);
             if (result.isSuccess()) {
                 Platform.runLater(() -> {
-                    // 使用修复后的方法名
                     mainDataService.updateFriendList(stateService.getFriendItems(), result.getFriends());
                     mainDataService.updateGroupList(stateService.getGroupItems(), result.getGroups());
                     dataLoaded = true;
@@ -313,136 +390,95 @@ public class MainControl implements Initializable {
         }).start();
     }
 
-    // ========== 消息处理 ==========
-    private void registerMessageHandlers() {
-        messageHandlers.put(MessageType.FRIEND_LIST_RESPONSE, this::handleFriendListResponse);
-        messageHandlers.put(MessageType.GROUP_LIST_RESPONSE, this::handleGroupListResponse);
-        messageHandlers.put(MessageType.CHAT_PRIVATE_RECEIVE, this::handlePrivateMessage);
-        messageHandlers.put(MessageType.CHAT_GROUP_RECEIVE, this::handleGroupMessage);
-        messageHandlers.put(MessageType.FRIEND_ADD_RESPONSE, this::handleFriendAddResponse);
-        messageHandlers.put(MessageType.GROUP_CREATE_RESPONSE, this::handleGroupCreateResponse);
-        messageHandlers.put(MessageType.FRIEND_REQUEST_RECEIVE, this::handleFriendRequestReceive);
-    }
+    // ========== 头像加载方法 ==========
+    // 添加重试计数
+    private int avatarLoadRetryCount = 0;
+    private static final int MAX_AVATAR_RETRY = 3;
 
-    private void handleServerMessage(String message) {
-        try {
-            JsonObject obj = gson.fromJson(message, JsonObject.class);
-            String type = obj.get("type").getAsString();
-            Consumer<String> handler = messageHandlers.get(type);
-            if (handler != null) {
-                handler.accept(message);
-            } else {
-                System.out.println("未注册的消息类型: " + type);
-            }
-        } catch (Exception e) {
-            System.err.println("处理服务器消息失败: " + e.getMessage());
+    /**
+     * 带重试机制的头像加载
+     */
+    private void loadUserAvatarWithRetry() {
+        if (avatarImage == null || userId == null || userId.isEmpty()) {
+            return;
         }
-    }
 
-    private void handleFriendListResponse(String response) {
-        FriendListResponse res = gson.fromJson(response, FriendListResponse.class);
-        if (res != null) stateService.updateFriendList(res.getFriends());
-    }
-
-    private void handleGroupListResponse(String response) {
-        GroupListResponse res = gson.fromJson(response, GroupListResponse.class);
-        if (res != null) stateService.updateGroupList(res.getGroups());
-    }
-
-    private void handlePrivateMessage(String messageJson) {
-        ChatPrivateReceive message = gson.fromJson(messageJson, ChatPrivateReceive.class);
-        stateService.handlePrivateMessage(message);
-    }
-
-    private void handleGroupMessage(String messageJson) {
-        ChatGroupReceive message = gson.fromJson(messageJson, ChatGroupReceive.class);
-        stateService.handleGroupMessage(message);
-    }
-
-    private void handleFriendAddResponse(String messageJson) {
-        FriendAddResponse response = gson.fromJson(messageJson, FriendAddResponse.class);
-        if (response != null && response.isSuccess()) {
-            DialogHelper.showInfo(mainContainer.getScene().getWindow(), "好友添加成功");
-            refreshAllDataWithFeedback();
-        } else {
-            String errorMsg = response != null ? response.getMessage() : "未知错误";
-            DialogHelper.showError(mainContainer.getScene().getWindow(), "好友添加失败: " + errorMsg);
+        if (!isConnected()) {
+            AvatarHelper.setDefaultAvatar(avatarImage, false, 40);
+            return;
         }
+
+        // 重置重试计数
+        avatarLoadRetryCount = 0;
+
+        // 开始加载
+        loadUserAvatarRetryImpl();
     }
 
-    private void handleGroupCreateResponse(String messageJson) {
-        GroupCreateResponse response = gson.fromJson(messageJson, GroupCreateResponse.class);
-        if (response != null && response.isSuccess()) {
-            DialogHelper.showInfo(mainContainer.getScene().getWindow(),
-                    "群聊创建成功: " + response.getGroupName());
-            refreshAllDataWithFeedback();
-        } else {
-            String errorMsg = response != null ? response.getMessage() : "未知错误";
-            DialogHelper.showError(mainContainer.getScene().getWindow(), "群聊创建失败: " + errorMsg);
-        }
-    }
+    private void loadUserAvatarRetryImpl() {
+        new Thread(() -> {
+            try {
+                avatarLoadRetryCount++;
+                System.out.println("[MainControl] 头像加载尝试 " + avatarLoadRetryCount + "/" + MAX_AVATAR_RETRY);
 
-    private void handleFriendRequestReceive(String messageJson) {
-        try {
-            JsonObject obj = gson.fromJson(messageJson, JsonObject.class);
-            Long requestId = obj.get("requestId").getAsLong();
-            Long fromUserId = obj.get("fromUserId").getAsLong();
-            String fromUsername = obj.get("fromUsername").getAsString();
-            String requestTime = obj.get("requestTime").getAsString();
-
-            Platform.runLater(() -> {
-                addNotification();
-
-                if (windowService.isWindowAlreadyOpen(NOTIFICATION_WINDOW_KEY)) {
-                    NotificationControl control = windowService.getWindowController(NOTIFICATION_WINDOW_KEY);
-                    if (control != null) {
-                        control.addNotificationFromMainControl(
-                                requestId,
-                                fromUserId,
-                                fromUsername,
-                                requestTime
-                        );
-                    }
+                if (userProfileService == null) {
+                    userProfileService = new UserProfileService(socketClient);
                 }
 
-                notificationService.showDesktopNotification(mainContainer.getScene().getWindow(),
-                        "新好友请求", "用户 " + fromUsername + " 请求添加您为好友");
-            });
-        } catch (Exception e) {
-            System.err.println("处理好友请求失败: " + e.getMessage());
-        }
+                Long userIdLong = Long.parseLong(userId);
+                UserInfoResponse userInfo = userProfileService.loadUserInfo(userIdLong);
+
+                Platform.runLater(() -> {
+                    if (userInfo != null && userInfo.isSuccess() &&
+                            userInfo.getAvatarUrl() != null && !userInfo.getAvatarUrl().trim().isEmpty()) {
+
+                        // 成功获取头像
+                        String avatarUrl = userInfo.getAvatarUrl();
+                        System.out.println("[MainControl] 头像加载成功: " + avatarUrl);
+                        AvatarHelper.loadAvatar(avatarImage, avatarUrl, false, 40);
+
+                    } else if (avatarLoadRetryCount < MAX_AVATAR_RETRY) {
+                        // 失败但还可以重试
+                        System.err.println("[MainControl] 头像加载失败，准备重试...");
+
+                        // 延迟后重试
+                        new Timer().schedule(new TimerTask() {
+                            @Override
+                            public void run() {
+                                loadUserAvatarRetryImpl();
+                            }
+                        }, 1000 * avatarLoadRetryCount); // 延迟时间递增
+
+                    } else {
+                        // 达到最大重试次数，使用默认头像
+                        System.err.println("[MainControl] 头像加载失败，已达到最大重试次数");
+                        AvatarHelper.setDefaultAvatar(avatarImage, false, 40);
+                    }
+                });
+
+            } catch (Exception e) {
+                System.err.println("[MainControl] 头像加载异常: " + e.getMessage());
+
+                Platform.runLater(() -> {
+                    if (avatarLoadRetryCount < MAX_AVATAR_RETRY) {
+                        // 延迟后重试
+                        new Timer().schedule(new TimerTask() {
+                            @Override
+                            public void run() {
+                                loadUserAvatarRetryImpl();
+                            }
+                        }, 1000 * avatarLoadRetryCount);
+                    } else {
+                        AvatarHelper.setDefaultAvatar(avatarImage, false, 40);
+                    }
+                });
+            }
+        }).start();
     }
 
     // ========== 工具方法 ==========
     private boolean isConnected() {
         return socketClient != null && socketClient.isConnected();
-    }
-
-    private void startMessageListener() {
-        if (messageTimer != null) {
-            messageTimer.cancel();
-        }
-
-        messageTimer = new Timer(true);
-        messageTimer.scheduleAtFixedRate(new TimerTask() {
-            @Override
-            public void run() {
-                if (isConnected()) {
-                    String message = socketClient.receiveMessage();
-                    if (message != null && !message.trim().isEmpty()) {
-                        Platform.runLater(() -> handleServerMessage(message));
-                    }
-                }
-            }
-        }, 0, 100);
-    }
-
-    private void stopMessageListener() {
-        if (messageTimer != null) {
-            messageTimer.cancel();
-            messageTimer = null;
-        }
-        windowService.closeAllWindows();
     }
 
     private void clearAllData() {
@@ -520,11 +556,7 @@ public class MainControl implements Initializable {
 
                     settingControl.setLogoutCallback(() -> {
                         System.out.println("设置界面触发退出，关闭所有窗口...");
-                        stopMessageListener();
-
-                        if (socketClient != null) {
-                            socketClient.disconnect();
-                        }
+                        cleanup();
 
                         Platform.runLater(() -> {
                             javafx.stage.Stage mainStage = (javafx.stage.Stage) mainContainer.getScene().getWindow();
@@ -564,42 +596,38 @@ public class MainControl implements Initializable {
         }
     }
 
-    // ========== 头像加载方法 ==========
-    private void loadUserAvatar() {
-        if (avatarImage == null) return;
+    // ========== 清理方法 ==========
+    public void cleanup() {
+        System.out.println("[MainControl] 开始清理所有数据...");
 
-        if (userId != null && !userId.isEmpty() && isConnected()) {
-            loadUserAvatarFromServer();
-        } else {
-            AvatarHelper.setDefaultAvatar(avatarImage, false);
-        }
-    }
+        stopMessageListener();
 
-    private void loadUserAvatarFromServer() {
-        try {
-            if (userProfileService == null) {
-                userProfileService = new UserProfileService(socketClient);
-            }
-
-            Long userIdLong = Long.parseLong(userId);
-            UserInfoResponse userInfo = userProfileService.loadUserInfo(userIdLong);
-
-            if (userInfo != null && userInfo.getAvatarUrl() != null) {
-                AvatarHelper.loadAvatar(avatarImage, userInfo.getAvatarUrl(), false, 40);
-                return;
-            }
-        } catch (Exception e) {
-            System.err.println("加载用户头像信息失败: " + e.getMessage());
+        if (socketClient != null) {
+            socketClient.disconnect();
         }
 
-        AvatarHelper.setDefaultAvatar(avatarImage, false);
+        windowService.closeAllWindows();
+
+        // 清理聊天会话管理器（退出登录时清空所有记录）
+        ChatSessionManager.getInstance().clearAllSessions();
+
+        // 清理状态服务
+        stateService.cleanup();
+
+        // 清理消息广播器
+        MessageBroadcaster.getInstance().cleanup();
+
+        // 重置数据加载标志
+        dataLoaded = false;
+
+        System.out.println("[MainControl] 清理完成，所有聊天记录已清空");
     }
 
     // ========== Setter 方法 ==========
     public void setSocketClient(SocketClient socketClient) {
         this.socketClient = socketClient;
         if (userId != null && isConnected()) {
-            AvatarHelper.loadAvatar(avatarImage, null, false);
+            AvatarHelper.setDefaultAvatar(avatarImage, false, 40);
         }
         Platform.runLater(this::tryLoadInitialDataIfReady);
     }
@@ -614,6 +642,26 @@ public class MainControl implements Initializable {
 
     public void setUserId(String userId) {
         this.userId = userId;
-        Platform.runLater(this::loadUserAvatar);
+
+        // 设置当前用户ID到MessageBroadcaster
+        if (userId != null && !userId.isEmpty()) {
+            try {
+                Long userIdLong = Long.parseLong(userId);
+                MessageBroadcaster.getInstance().setCurrentUserId(userIdLong);
+                System.out.println("[MainControl] 已设置当前用户ID: " + userIdLong);
+            } catch (NumberFormatException e) {
+                System.err.println("用户ID格式错误: " + e.getMessage());
+            }
+        }
+
+        Platform.runLater(() -> {
+            // 立即显示默认头像
+            AvatarHelper.setDefaultAvatar(avatarImage, false, 40);
+
+            // 异步加载真实头像
+            if (isConnected()) {
+                loadUserAvatarWithRetry();
+            }
+        });
     }
 }
