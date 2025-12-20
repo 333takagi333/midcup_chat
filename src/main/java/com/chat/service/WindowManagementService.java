@@ -18,7 +18,7 @@ import java.util.function.Consumer;
  */
 public class WindowManagementService {
 
-    private final Map<String, Stage> activeWindows = new HashMap<>();
+    final Map<String, Stage> activeWindows = new HashMap<>();
 
     /**
      * 获取聊天窗口的键
@@ -144,5 +144,10 @@ public class WindowManagementService {
      */
     public int getActiveWindowCount() {
         return activeWindows.size();
+    }
+    public void addActiveWindow(String key, Stage stage) {
+        if (key != null && stage != null) {
+            activeWindows.put(key, stage);
+        }
     }
 }
