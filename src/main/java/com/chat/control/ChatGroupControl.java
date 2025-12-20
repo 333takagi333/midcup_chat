@@ -4,8 +4,7 @@ import com.chat.network.SocketClient;
 import com.chat.service.ChatService;
 import com.chat.service.ChatSessionManager;
 import com.chat.service.MessageBroadcaster;
-import com.chat.protocol.ChatHistoryResponse;
-import com.chat.protocol.ChatHistoryResponse.HistoryMessageItem;
+import com.chat.service.WindowManagementService;
 import com.chat.ui.AvatarHelper;
 import com.chat.ui.DialogUtil;
 import javafx.application.Platform;
@@ -30,7 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * 群聊界面控制器
  */
-public class ChatGroupControl implements Initializable, MessageBroadcaster.GroupMessageListener, ChatService.ChatHistoryCallback {
+public class ChatGroupControl implements Initializable, MessageBroadcaster.GroupMessageListener {
 
     @FXML private Label groupNameLabel;
     @FXML private ImageView groupAvatar;
@@ -51,15 +50,11 @@ public class ChatGroupControl implements Initializable, MessageBroadcaster.Group
 
     private final MessageBroadcaster broadcaster = MessageBroadcaster.getInstance();
     private final ChatSessionManager sessionManager = ChatSessionManager.getInstance();
+    private final WindowManagementService windowService = new WindowManagementService();
 
     // 用于去重的集合
     private final Set<String> processedMessageKeys = Collections.newSetFromMap(new ConcurrentHashMap<>());
     private final Map<String, Long> pendingMessages = new ConcurrentHashMap<>();
-
-    // 用于历史消息分页
-    private Long earliestTimestamp = null;
-    private boolean isLoadingHistory = false;
-    private boolean hasLoadedHistory = false;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
@@ -73,9 +68,9 @@ public class ChatGroupControl implements Initializable, MessageBroadcaster.Group
     }
 
     private void createHistoryButton() {
-        loadHistoryButton = new Button("加载历史记录");
-        loadHistoryButton.getStyleClass().add("history-button");
-        loadHistoryButton.setOnAction(event -> loadHistoryMessages());
+        loadHistoryButton = new Button("查看历史记录");
+        loadHistoryButton.setStyle("-fx-background-color: #2c3e50; -fx-text-fill: white;");
+        loadHistoryButton.setOnAction(event -> openHistoryWindow());
         historyButtonBox.getChildren().add(loadHistoryButton);
     }
 
@@ -126,7 +121,7 @@ public class ChatGroupControl implements Initializable, MessageBroadcaster.Group
     private void showGroupDetails() {
         try {
             // 加载群聊详情FXML
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/chat/ui/group-details.fxml"));
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/chat/fxml/group-details.fxml"));
             VBox groupDetailsRoot = loader.load();
 
             // 获取控制器并设置数据
@@ -150,6 +145,41 @@ public class ChatGroupControl implements Initializable, MessageBroadcaster.Group
         } catch (Exception e) {
             System.err.println("[ChatGroupControl] 打开群聊详情失败: " + e.getMessage());
             DialogUtil.showError(chatArea.getScene().getWindow(), "打开群聊详情失败");
+        }
+    }
+
+    /**
+     * 打开历史记录窗口
+     */
+    private void openHistoryWindow() {
+        try {
+            // 加载历史记录窗口FXML
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/chat/fxml/ChatHistoryWindow.fxml"));
+            VBox historyRoot = loader.load();
+
+            // 获取控制器并设置数据
+            ChatHistoryWindowControl controller = loader.getController();
+            controller.setHistoryInfo(
+                    "group",
+                    groupId,
+                    groupName,
+                    userId,
+                    socketClient
+            );
+
+            // 创建新窗口显示历史记录
+            Stage historyStage = new Stage();
+            historyStage.initModality(Modality.WINDOW_MODAL);
+            historyStage.initOwner(chatArea.getScene().getWindow());
+            historyStage.setTitle(groupName + " - 历史记录");
+            historyStage.setScene(new javafx.scene.Scene(historyRoot, 600, 700));
+            historyStage.show();
+
+            System.out.println("[ChatGroupControl] 历史记录窗口已打开");
+
+        } catch (Exception e) {
+            System.err.println("[ChatGroupControl] 打开历史记录窗口失败: " + e.getMessage());
+            DialogUtil.showError(chatArea.getScene().getWindow(), "打开历史记录窗口失败: " + e.getMessage());
         }
     }
 
@@ -229,115 +259,6 @@ public class ChatGroupControl implements Initializable, MessageBroadcaster.Group
                 });
             }
         }).start();
-    }
-
-    /**
-     * 加载历史消息按钮点击事件 - 加载此前登录的所有聊天历史记录
-     */
-    private void loadHistoryMessages() {
-        if (socketClient == null || !socketClient.isConnected() || groupId == null) {
-            DialogUtil.showError(chatArea.getScene().getWindow(), "未连接到服务器");
-            return;
-        }
-
-        if (isLoadingHistory) {
-            System.out.println("[ChatGroupControl] 历史消息正在加载中，请稍候");
-            return;
-        }
-
-        isLoadingHistory = true;
-
-        // 禁用按钮防止重复点击
-        loadHistoryButton.setDisable(true);
-        loadHistoryButton.setText("加载中...");
-
-        System.out.println("[ChatGroupControl] 开始加载历史聊天记录");
-
-        // 第一次加载，不传时间戳，获取最新的消息
-        chatService.loadHistoryMessages(
-                socketClient,
-                "group",
-                groupId,
-                groupId.toString(),
-                50,  // 第一次加载50条
-                null, // 不传时间戳，获取最新的消息
-                this  // 回调接口
-        );
-    }
-
-    @Override
-    public void onHistoryLoaded(ChatHistoryResponse response, String error) {
-        Platform.runLater(() -> {
-            isLoadingHistory = false;
-
-            if (error != null) {
-                System.err.println("[ChatGroupControl] 加载历史消息失败: " + error);
-                DialogUtil.showError(chatArea.getScene().getWindow(), "加载历史消息失败: " + error);
-                loadHistoryButton.setDisable(false);
-                loadHistoryButton.setText("加载历史记录");
-                return;
-            }
-
-            if (response == null || response.getMessages() == null || response.getMessages().isEmpty()) {
-                System.out.println("[ChatGroupControl] 没有历史消息");
-                hasLoadedHistory = true;
-                loadHistoryButton.setText("没有更多历史");
-                loadHistoryButton.setDisable(true);
-                return;
-            }
-
-            // 处理历史消息
-            List<HistoryMessageItem> messages = response.getMessages();
-            System.out.println("[ChatGroupControl] 成功加载 " + messages.size() + " 条历史消息");
-
-            // 保存当前文本（这是本次登录的记录）
-            String currentText = chatArea.getText();
-
-            // 清空并重新组织显示
-            chatArea.clear();
-
-            // 先显示历史消息（从旧到新）
-            Long newEarliestTimestamp = null;
-            List<String> historyMessages = new ArrayList<>();
-
-            for (HistoryMessageItem item : messages) {
-                String time = timeFormat.format(new Date(item.getTimestamp()));
-                String senderName = item.getSenderId().equals(userId) ? "我" : "用户" + item.getSenderId();
-                String displayMessage = "[" + time + "] " + senderName + ": " + item.getContent();
-
-                historyMessages.add(displayMessage);
-
-                // 记录最早的时间戳
-                if (newEarliestTimestamp == null || item.getTimestamp() < newEarliestTimestamp) {
-                    newEarliestTimestamp = item.getTimestamp();
-                }
-            }
-
-            // 显示历史消息，不加标题
-            for (String message : historyMessages) {
-                chatArea.appendText(message + "\n");
-            }
-
-            // 再显示当前会话的记录（本次登录的记录）
-            if (!currentText.trim().isEmpty()) {
-                chatArea.appendText(currentText);
-            }
-
-            // 更新最早时间戳
-            earliestTimestamp = newEarliestTimestamp;
-            hasLoadedHistory = true;
-
-            // 检查是否需要加载更多
-            if (messages.size() >= 50) {
-                // 还有更多消息，启用加载更多按钮
-                loadHistoryButton.setText("加载更多历史");
-                loadHistoryButton.setDisable(false);
-            } else {
-                // 已加载所有消息
-                loadHistoryButton.setText("已加载全部历史");
-                loadHistoryButton.setDisable(true);
-            }
-        });
     }
 
     @Override

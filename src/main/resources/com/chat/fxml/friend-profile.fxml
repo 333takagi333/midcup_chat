@@ -53,15 +53,14 @@
 
     <!-- 操作按钮区域 -->
     <HBox spacing="10" alignment="CENTER">
-        <!-- 发送消息按钮 -->
-        <Button text="发送消息"
-                style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
-
+        <!-- 删除好友按钮居中显示 -->
         <Region HBox.hgrow="ALWAYS" />
 
-        <!-- 删除好友按钮 -->
         <Button fx:id="deleteFriendButton" text="删除好友"
-                style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
+                style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-weight: bold;
+                       -fx-padding: 8 30; -fx-font-size: 14px;" />
+
+        <Region HBox.hgrow="ALWAYS" />
     </HBox>
 
     <!-- 底部提示 -->

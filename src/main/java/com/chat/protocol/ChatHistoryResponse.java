@@ -42,7 +42,7 @@ public class ChatHistoryResponse {
         private String fileUrl;
         private Long fileSize;
         private String fileName;
-        private Long timestamp;
+        private String timestamp; // 改为String类型，接收DATETIME格式
         private Integer isRead; // 0/1
 
         public Long getId() { return id; }
@@ -63,8 +63,8 @@ public class ChatHistoryResponse {
         public void setFileSize(Long fileSize) { this.fileSize = fileSize; }
         public String getFileName() { return fileName; }
         public void setFileName(String fileName) { this.fileName = fileName; }
-        public Long getTimestamp() { return timestamp; }
-        public void setTimestamp(Long timestamp) { this.timestamp = timestamp; }
+        public String getTimestamp() { return timestamp; }
+        public void setTimestamp(String timestamp) { this.timestamp = timestamp; }
         public Integer getIsRead() { return isRead; }
         public void setIsRead(Integer isRead) { this.isRead = isRead; }
     }

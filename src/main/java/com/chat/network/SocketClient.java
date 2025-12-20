@@ -61,25 +61,42 @@ public class SocketClient {
         try {
             // 确保连接建立
             if (!connected && !connect()) {
+                System.err.println("[SOCKET] 连接失败，无法发送请求");
                 return null;
             }
 
             // 发送请求
             String json = gson.toJson(data);
-            System.out.println("[SOCKET] Sending: " + json);
+            System.out.println("[SOCKET] 发送请求: " + json);
+
+            // 确保输出流可用
+            if (out == null) {
+                System.err.println("[SOCKET] 输出流为空");
+                return null;
+            }
+
             out.println(json);
+            out.flush(); // 确保数据发送
 
             // 读取响应
+            if (in == null) {
+                System.err.println("[SOCKET] 输入流为空");
+                return null;
+            }
+
             String response = in.readLine();
-            System.out.println("[SOCKET] Received: " + response);
+            System.out.println("[SOCKET] 收到响应: " + (response != null ? response : "null"));
             return response;
 
         } catch (SocketTimeoutException e) {
-            System.err.println("[SOCKET] Request timeout");
+            System.err.println("[SOCKET] 请求超时: " + e.getMessage());
             return null;
         } catch (IOException e) {
-            System.err.println("[SOCKET] Request failed: " + e.getMessage());
+            System.err.println("[SOCKET] 请求失败: " + e.getMessage());
             connected = false; // 标记连接断开
+            return null;
+        } catch (Exception e) {
+            System.err.println("[SOCKET] 请求异常: " + e.getMessage());
             return null;
         }
     }
@@ -261,14 +278,6 @@ public class SocketClient {
     public String sendExitGroupRequest(ExitGroupRequest request) {
         return sendRequest(request);
     }
-
-    /**
-     * 发送更新群昵称请求
-     */
-    public String sendUpdateNicknameRequest(UpdateNicknameRequest request) {
-        return sendRequest(request);
-    }
-
 
     // ==================== 通用消息发送 ====================
 

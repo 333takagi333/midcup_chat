@@ -6,6 +6,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -21,6 +22,8 @@ public class ChatService {
 
     // 时间格式化器
     private final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm");
+    // 数据库datetime格式
+    private final SimpleDateFormat dbDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
     /**
      * 发送私聊消息
@@ -77,7 +80,7 @@ public class ChatService {
     }
 
     /**
-     * 处理接收到的消息并广播
+     * 处理接收到的消息并广播（不处理历史消息响应）
      */
     public void processMessage(String messageJson) {
         try {
@@ -88,8 +91,14 @@ public class ChatService {
             if (jsonObject.has("type")) {
                 String type = jsonObject.get("type").getAsString();
 
+                // ========== 重要：跳过历史消息响应 ==========
+                if (MessageType.CHAT_HISTORY_RESPONSE.equals(type)) {
+                    System.out.println("[ChatService] 收到历史消息响应，跳过处理（由 HistoryService 处理）");
+                    return;
+                }
+
                 // 私聊消息
-                if ("chat_private_receive".equals(type)) {
+                if (MessageType.CHAT_PRIVATE_RECEIVE.equals(type)) {
                     Long messageId = jsonObject.has("id") ? jsonObject.get("id").getAsLong() : null;
                     Long fromUserId = jsonObject.get("fromUserId").getAsLong();
                     Long toUserId = jsonObject.get("toUserId").getAsLong();
@@ -112,7 +121,7 @@ public class ChatService {
                     System.out.println("[ChatService] 已处理并广播私聊消息: " + fromUserId + " -> " + toUserId);
                 }
                 // 群聊消息
-                else if ("chat_group_receive".equals(type)) {
+                else if (MessageType.CHAT_GROUP_RECEIVE.equals(type)) {
                     Long messageId = jsonObject.has("id") ? jsonObject.get("id").getAsLong() : null;
                     Long groupId = jsonObject.get("groupId").getAsLong();
                     Long fromUserId = jsonObject.get("fromUserId").getAsLong();
@@ -133,6 +142,10 @@ public class ChatService {
 
                     System.out.println("[ChatService] 已处理并广播群聊消息: 群组" + groupId);
                 }
+                // 其他类型的消息（好友请求、系统通知等）
+                else {
+                    System.out.println("[ChatService] 收到其他类型消息: " + type);
+                }
             }
         } catch (Exception e) {
             System.err.println("处理消息失败: " + e.getMessage());
@@ -141,117 +154,36 @@ public class ChatService {
     }
 
     /**
-     * 加载历史消息 - 从服务器获取更早的聊天记录
+     * 解析数据库datetime字符串为Date对象
      */
-    public void loadHistoryMessages(SocketClient client, String chatType, Long targetId,
-                                    String chatKey, Integer limit, Long beforeTimestamp,
-                                    ChatHistoryCallback callback) {
-        new Thread(() -> {
-            try {
-                System.out.println("[ChatService] 开始加载历史消息: " + chatType + ", 目标ID: " + targetId);
+    public Date parseDbDateTime(String datetimeStr) {
+        if (datetimeStr == null || datetimeStr.trim().isEmpty()) {
+            return new Date();
+        }
 
-                ChatHistoryRequest request = new ChatHistoryRequest();
-                request.setChatType(chatType);
-
-                if ("private".equals(chatType)) {
-                    request.setTargetUserId(targetId);
-                } else if ("group".equals(chatType)) {
-                    request.setGroupId(targetId);
-                }
-
-                if (limit != null) {
-                    request.setLimit(limit);
-                } else {
-                    request.setLimit(50); // 默认50条
-                }
-
-                if (beforeTimestamp != null) {
-                    request.setBeforeTimestamp(beforeTimestamp);
-                    System.out.println("[ChatService] 加载早于 " + beforeTimestamp + " 的消息");
-                }
-
-                // 发送历史消息请求
-                String responseJson = client.sendAndReceive(request, 5000); // 5秒超时
-
-                if (responseJson == null || responseJson.trim().isEmpty()) {
-                    System.err.println("[ChatService] 历史消息请求无响应");
-                    if (callback != null) {
-                        callback.onHistoryLoaded(null, "服务器无响应");
-                    }
-                    return;
-                }
-
-                System.out.println("[ChatService] 收到历史消息响应: " + responseJson);
-
-                ChatHistoryResponse response = gson.fromJson(responseJson, ChatHistoryResponse.class);
-
-                if (response == null) {
-                    System.err.println("[ChatService] 解析历史消息响应失败");
-                    if (callback != null) {
-                        callback.onHistoryLoaded(null, "解析响应失败");
-                    }
-                    return;
-                }
-
-                if (!response.isSuccess()) {
-                    System.err.println("[ChatService] 历史消息请求失败: " + response.getMessage());
-                    if (callback != null) {
-                        callback.onHistoryLoaded(null, response.getMessage());
-                    }
-                    return;
-                }
-
-                if (response.getMessages() == null || response.getMessages().isEmpty()) {
-                    System.out.println("[ChatService] 没有更多历史消息");
-                    if (callback != null) {
-                        callback.onHistoryLoaded(response, "没有更多历史消息");
-                    }
-                    return;
-                }
-
-                System.out.println("[ChatService] 成功加载 " + response.getMessages().size() + " 条历史消息");
-
-                // 处理历史消息并保存到会话管理器
-                for (ChatHistoryResponse.HistoryMessageItem item : response.getMessages()) {
-                    String time = timeFormat.format(new Date(item.getTimestamp()));
-
-                    if ("private".equals(chatType)) {
-                        String senderName = "用户" + item.getSenderId();
-                        String displayMessage = "[" + time + "] " + senderName + ": " + item.getContent();
-
-                        // 保存到会话管理器（需要知道当前用户ID和联系人ID）
-                        // 这里简化处理，由广播器处理时保存
-                        System.out.println("[ChatService] 加载私聊历史消息: " + displayMessage);
-
-                    } else if ("group".equals(chatType)) {
-                        String senderName = "用户" + item.getSenderId();
-                        String displayMessage = "[" + time + "] " + senderName + ": " + item.getContent();
-
-                        // 保存到会话管理器
-                        sessionManager.addGroupMessage(item.getGroupId(), displayMessage);
-                        System.out.println("[ChatService] 保存群聊历史消息到会话: " + displayMessage);
-                    }
-                }
-
-                if (callback != null) {
-                    callback.onHistoryLoaded(response, null);
-                }
-
-            } catch (Exception e) {
-                System.err.println("[ChatService] 加载历史消息失败: " + e.getMessage());
-                e.printStackTrace();
-                if (callback != null) {
-                    callback.onHistoryLoaded(null, "加载失败: " + e.getMessage());
-                }
-            }
-        }).start();
+        try {
+            // 尝试解析为数据库datetime格式
+            return dbDateFormat.parse(datetimeStr);
+        } catch (ParseException e) {
+            System.err.println("[ChatService] 解析datetime失败: " + datetimeStr + ", 错误: " + e.getMessage());
+            return new Date();
+        }
     }
 
     /**
-     * 历史消息加载回调接口
+     * 格式化数据库datetime字符串为显示时间（HH:mm）
      */
-    public interface ChatHistoryCallback {
-        void onHistoryLoaded(ChatHistoryResponse response, String error);
+    public String formatDbDateTimeForDisplay(String datetimeStr) {
+        Date date = parseDbDateTime(datetimeStr);
+        return timeFormat.format(date);
+    }
+
+    /**
+     * 将数据库datetime字符串转换为Long类型时间戳（用于比较和分页）
+     */
+    public Long dbDateTimeToTimestamp(String datetimeStr) {
+        Date date = parseDbDateTime(datetimeStr);
+        return date.getTime();
     }
 
     /**

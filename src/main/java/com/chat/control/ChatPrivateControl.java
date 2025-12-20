@@ -4,8 +4,7 @@ import com.chat.network.SocketClient;
 import com.chat.service.ChatService;
 import com.chat.service.ChatSessionManager;
 import com.chat.service.MessageBroadcaster;
-import com.chat.protocol.ChatHistoryResponse;
-import com.chat.protocol.ChatHistoryResponse.HistoryMessageItem;
+import com.chat.service.WindowManagementService;
 import com.chat.ui.AvatarHelper;
 import com.chat.ui.DialogUtil;
 import javafx.application.Platform;
@@ -21,6 +20,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.stage.Modality;
+import javafx.stage.Window;
 
 import java.net.URL;
 import java.text.SimpleDateFormat;
@@ -30,7 +30,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * 私聊界面控制器
  */
-public class ChatPrivateControl implements Initializable, MessageBroadcaster.PrivateMessageListener, ChatService.ChatHistoryCallback {
+public class ChatPrivateControl implements Initializable, MessageBroadcaster.PrivateMessageListener {
 
     @FXML private Label contactNameLabel;
     @FXML private ImageView contactAvatar;
@@ -39,6 +39,7 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
     @FXML private HBox historyButtonBox;
     @FXML private Button profileButton; // 好友详情按钮
 
+    @FXML
     private Button loadHistoryButton;
 
     private Long contactId;
@@ -51,6 +52,7 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
 
     private final MessageBroadcaster broadcaster = MessageBroadcaster.getInstance();
     private final ChatSessionManager sessionManager = ChatSessionManager.getInstance();
+    private final WindowManagementService windowService = new WindowManagementService();
 
     private String listenerKey;
 
@@ -58,12 +60,6 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
     private final Set<String> processedMessageKeys = Collections.newSetFromMap(new ConcurrentHashMap<>());
     // 临时存储刚发送的消息，等待服务器确认
     private final Map<String, Long> pendingMessages = new ConcurrentHashMap<>();
-
-    // 用于历史消息分页
-    private Long earliestTimestamp = null;
-    private boolean isLoadingHistory = false;
-    // 标记是否已经加载过历史消息
-    private boolean hasLoadedHistory = false;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
@@ -77,9 +73,9 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
     }
 
     private void createHistoryButton() {
-        loadHistoryButton = new Button("加载历史记录");
-        loadHistoryButton.getStyleClass().add("history-button");
-        loadHistoryButton.setOnAction(event -> loadHistoryMessages());
+        loadHistoryButton = new Button("查看历史记录");
+        loadHistoryButton.setStyle("-fx-background-color: #2c3e50; -fx-text-fill: white;");
+        loadHistoryButton.setOnAction(event -> openHistoryWindow());
         historyButtonBox.getChildren().add(loadHistoryButton);
     }
 
@@ -153,7 +149,7 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
     private void showFriendProfile() {
         try {
             // 加载好友资料FXML
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/chat/ui/friend-profile.fxml"));
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/chat/fxml/friend-profile.fxml"));
             VBox friendProfileRoot = loader.load();
 
             // 获取控制器并设置数据
@@ -180,6 +176,41 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
         }
     }
 
+    /**
+     * 打开历史记录窗口
+     */
+    private void openHistoryWindow() {
+        try {
+            // 加载历史记录窗口FXML
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/chat/fxml/ChatHistoryWindow.fxml"));
+            VBox historyRoot = loader.load();
+
+            // 获取控制器并设置数据
+            ChatHistoryWindowControl controller = loader.getController();
+            controller.setHistoryInfo(
+                    "private",
+                    contactId,
+                    contactName,
+                    userId,
+                    socketClient
+            );
+
+            // 创建新窗口显示历史记录
+            Stage historyStage = new Stage();
+            historyStage.initModality(Modality.WINDOW_MODAL);
+            historyStage.initOwner(chatArea.getScene().getWindow());
+            historyStage.setTitle(contactName + " - 历史记录");
+            historyStage.setScene(new javafx.scene.Scene(historyRoot, 600, 700));
+            historyStage.show();
+
+            System.out.println("[ChatPrivateControl] 历史记录窗口已打开");
+
+        } catch (Exception e) {
+            System.err.println("[ChatPrivateControl] 打开历史记录窗口失败: " + e.getMessage());
+            DialogUtil.showError(chatArea.getScene().getWindow(), "打开历史记录窗口失败: " + e.getMessage());
+        }
+    }
+
     @FXML
     private void sendMessage() {
         String content = messageInput.getText().trim();
@@ -197,7 +228,7 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
 
         // 在本地立即显示（给用户即时反馈）
         String time = timeFormat.format(new Date(timestamp));
-        String displayMessage = "[" + time + "] 我: " + content;
+        String displayMessage = String.format("%s[%s] 我: %s\n", "", time, content);
 
         // 标记这个消息为"已发送待确认"
         pendingMessages.put(messageKey, timestamp);
@@ -241,115 +272,6 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
         }).start();
     }
 
-    /**
-     * 加载历史消息按钮点击事件 - 加载此前登录的所有聊天历史记录
-     */
-    private void loadHistoryMessages() {
-        if (socketClient == null || !socketClient.isConnected() || contactId == null) {
-            DialogUtil.showError(chatArea.getScene().getWindow(), "未连接到服务器");
-            return;
-        }
-
-        if (isLoadingHistory) {
-            System.out.println("[ChatPrivateControl] 历史消息正在加载中，请稍候");
-            return;
-        }
-
-        isLoadingHistory = true;
-
-        // 禁用按钮防止重复点击
-        loadHistoryButton.setDisable(true);
-        loadHistoryButton.setText("加载中...");
-
-        System.out.println("[ChatPrivateControl] 开始加载历史聊天记录");
-
-        // 第一次加载，不传时间戳，获取最新的消息
-        chatService.loadHistoryMessages(
-                socketClient,
-                "private",
-                contactId,
-                listenerKey,
-                50,  // 第一次加载50条
-                null, // 不传时间戳，获取最新的消息
-                this  // 回调接口
-        );
-    }
-
-    @Override
-    public void onHistoryLoaded(ChatHistoryResponse response, String error) {
-        Platform.runLater(() -> {
-            isLoadingHistory = false;
-
-            if (error != null) {
-                System.err.println("[ChatPrivateControl] 加载历史消息失败: " + error);
-                DialogUtil.showError(chatArea.getScene().getWindow(), "加载历史消息失败: " + error);
-                loadHistoryButton.setDisable(false);
-                loadHistoryButton.setText("加载历史记录");
-                return;
-            }
-
-            if (response == null || response.getMessages() == null || response.getMessages().isEmpty()) {
-                System.out.println("[ChatPrivateControl] 没有历史消息");
-                hasLoadedHistory = true;
-                loadHistoryButton.setText("没有更多历史");
-                loadHistoryButton.setDisable(true);
-                return;
-            }
-
-            // 处理历史消息
-            List<HistoryMessageItem> messages = response.getMessages();
-            System.out.println("[ChatPrivateControl] 成功加载 " + messages.size() + " 条历史消息");
-
-            // 保存当前文本（这是本次登录的记录）
-            String currentText = chatArea.getText();
-
-            // 清空并重新组织显示
-            chatArea.clear();
-
-            // 先显示历史消息（从旧到新）
-            Long newEarliestTimestamp = null;
-            List<String> historyMessages = new ArrayList<>();
-
-            for (HistoryMessageItem item : messages) {
-                String time = timeFormat.format(new Date(item.getTimestamp()));
-                String senderName = item.getSenderId().equals(userId) ? "我" : contactName;
-                String displayMessage = "[" + time + "] " + senderName + ": " + item.getContent();
-
-                historyMessages.add(displayMessage);
-
-                // 记录最早的时间戳
-                if (newEarliestTimestamp == null || item.getTimestamp() < newEarliestTimestamp) {
-                    newEarliestTimestamp = item.getTimestamp();
-                }
-            }
-
-            // 显示历史消息，不加标题
-            for (String message : historyMessages) {
-                chatArea.appendText(message + "\n");
-            }
-
-            // 再显示当前会话的记录（本次登录的记录）
-            if (!currentText.trim().isEmpty()) {
-                chatArea.appendText(currentText);
-            }
-
-            // 更新最早时间戳
-            earliestTimestamp = newEarliestTimestamp;
-            hasLoadedHistory = true;
-
-            // 检查是否需要加载更多
-            if (messages.size() >= 50) {
-                // 还有更多消息，启用加载更多按钮
-                loadHistoryButton.setText("加载更多历史");
-                loadHistoryButton.setDisable(false);
-            } else {
-                // 已加载所有消息
-                loadHistoryButton.setText("已加载全部历史");
-                loadHistoryButton.setDisable(true);
-            }
-        });
-    }
-
     @Override
     public void onPrivateMessageReceived(Long fromUserId, Long toUserId, String content,
                                          long timestamp, Long messageId) {
@@ -379,7 +301,7 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
                 // 正常处理新消息
                 String time = timeFormat.format(new Date(timestamp));
                 String senderName = fromUserId.equals(userId) ? "我" : contactName;
-                String displayMessage = "[" + time + "] " + senderName + ": " + content;
+                String displayMessage = String.format("[%s] %s: %s\n", time, senderName, content);
 
                 // 添加到已处理集合
                 processedMessageKeys.add(messageKey);
@@ -446,4 +368,5 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
     public Long getUserId() {
         return userId;
     }
+
 }
