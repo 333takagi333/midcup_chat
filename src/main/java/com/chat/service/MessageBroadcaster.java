@@ -53,6 +53,44 @@ public class MessageBroadcaster {
         void onNewGroupMessage(Long groupId, String groupName, String content, long timestamp, Long messageId);
     }
 
+    // 添加文件消息监听器接口
+    public interface FileMessageListener {
+        void onFileMessageReceived(String chatType, Long senderId, Long targetId,
+                                   String fileName, long fileSize, String fileType,
+                                   String downloadUrl, long timestamp);
+    }
+
+    // 添加文件消息广播方法
+    public void broadcastFileMessage(String chatType, Long senderId, Long targetId,
+                                     String fileName, long fileSize, String fileType,
+                                     String downloadUrl, long timestamp) {
+
+        String messageKey = String.format("file_%s_%d_%d_%s_%d",
+                chatType, senderId, targetId, fileName, timestamp);
+
+        if (isDuplicateMessage(messageKey, null)) {
+            return;
+        }
+
+        // 根据聊天类型广播
+        if ("private".equals(chatType)) {
+            // 广播给私聊窗口
+            String senderKey = "private_" + senderId + "_" + targetId;
+            String receiverKey = "private_" + targetId + "_" + senderId;
+
+            // 类似文本消息的广播逻辑
+        } else if ("group".equals(chatType)) {
+            // 广播给群聊窗口
+            List<GroupMessageListener> listeners = groupListeners.get(targetId.toString());
+            if (listeners != null) {
+                Platform.runLater(() -> {
+                    for (GroupMessageListener listener : listeners) {
+                        // 可以调用新的方法或使用现有方法
+                    }
+                });
+            }
+        }
+    }
     // ========== 配置方法 ==========
 
     /**

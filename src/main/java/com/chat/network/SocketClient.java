@@ -279,6 +279,19 @@ public class SocketClient {
         return sendRequest(request);
     }
 
+    /**
+     * 发送文件上传请求
+     */
+    public String sendFileUploadRequest(FileUploadRequest request) {
+        return sendRequest(request);
+    }
+
+    /**
+     * 发送文件下载请求
+     */
+    public String sendFileDownloadRequest(FileDownloadRequest request) {
+        return sendRequest(request);
+    }
     // ==================== 通用消息发送 ====================
 
     /**

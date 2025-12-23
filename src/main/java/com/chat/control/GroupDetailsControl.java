@@ -23,10 +23,9 @@ public class GroupDetailsControl implements Initializable {
     @FXML private ImageView groupAvatar;
     @FXML private Label groupNameLabel, groupIdLabel, memberCountLabel;
     @FXML private TextField myNicknameField;
-    @FXML private TextArea groupNoticeArea;
     @FXML private ListView<String> fileListView;
     @FXML private ListView<String> memberListView;
-    @FXML private Button saveNicknameButton, exitGroupButton, downloadButton, updateNoticeButton;
+    @FXML private Button saveNicknameButton, exitGroupButton, downloadButton;
     @FXML private VBox mainContainer;
 
     // 业务服务
@@ -53,10 +52,6 @@ public class GroupDetailsControl implements Initializable {
 
         if (downloadButton != null) {
             downloadButton.setOnAction(event -> handleDownloadFile());
-        }
-
-        if (updateNoticeButton != null) {
-            updateNoticeButton.setOnAction(event -> handleUpdateNotice());
         }
 
         // 初始化列表视图
@@ -163,10 +158,6 @@ public class GroupDetailsControl implements Initializable {
             memberCountLabel.setText("成员: " + response.getMemberCount() + "人");
         }
 
-        if (response.getNotice() != null) {
-            groupNoticeArea.setText(response.getNotice());
-        }
-
         if (response.getMyNickname() != null) {
             myNicknameField.setText(response.getMyNickname());
         }
@@ -217,7 +208,6 @@ public class GroupDetailsControl implements Initializable {
      */
     private void setDefaultInfo() {
         memberCountLabel.setText("成员: 加载中...");
-        groupNoticeArea.setText("暂无群公告");
         myNicknameField.setText("我在本群的昵称");
     }
 
@@ -235,14 +225,6 @@ public class GroupDetailsControl implements Initializable {
     private void handleDownloadFile() {
         String selectedFile = fileListView.getSelectionModel().getSelectedItem();
         groupDetailsService.downloadGroupFile(groupId, "", selectedFile, getCurrentWindow());
-    }
-
-    /**
-     * 处理更新群公告（调用服务处理）
-     */
-    private void handleUpdateNotice() {
-        String notice = groupNoticeArea.getText().trim();
-        groupDetailsService.updateGroupNotice(groupId, notice, currentUserId, getCurrentWindow());
     }
 
     /**
