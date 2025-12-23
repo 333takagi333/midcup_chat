@@ -82,11 +82,7 @@ public final class CellFactoryHelper {
                     VBox content = new VBox(5);
                     Label nameLabel = new Label(item.getUsername());
                     nameLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14;");
-
-                    Label statusLabel = new Label(item.getStatus());
-                    statusLabel.setStyle("-fx-text-fill: #666; -fx-font-size: 12;");
-
-                    content.getChildren().addAll(nameLabel, statusLabel);
+                    content.getChildren().addAll(nameLabel);
                     cell.getChildren().addAll(avatar, content);
                     setGraphic(cell);
                 }
@@ -116,13 +112,7 @@ public final class CellFactoryHelper {
                     nameLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14;");
 
                     HBox info = new HBox(10);
-                    Label messageLabel = new Label(item.getLastMessage());
-                    messageLabel.setStyle("-fx-text-fill: #666; -fx-font-size: 12;");
-
-                    Label countLabel = new Label(item.getMemberCount());
-                    countLabel.setStyle("-fx-text-fill: #999; -fx-font-size: 11;");
-
-                    info.getChildren().addAll(messageLabel, countLabel);
+                    info.getChildren().addAll();
                     content.getChildren().addAll(nameLabel, info);
                     cell.getChildren().addAll(avatar, content);
                     setGraphic(cell);

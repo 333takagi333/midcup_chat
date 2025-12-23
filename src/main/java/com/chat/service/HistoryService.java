@@ -37,13 +37,35 @@ public class HistoryService {
 
                 ChatHistoryRequest request = new ChatHistoryRequest();
                 request.setChatType(chatType);
-                request.setTargetUserId(targetId);
                 request.setLimit(limit != null ? limit : 50);
+
+                // 关键修复：根据聊天类型设置不同的字段
+                if ("private".equals(chatType)) {
+                    System.out.println("[HistoryService] 设置私聊参数: targetUserId=" + targetId);
+                    request.setTargetUserId(targetId);  // 私聊用 targetUserId
+                } else if ("group".equals(chatType)) {
+                    System.out.println("[HistoryService] 设置群聊参数: groupId=" + targetId);
+                    request.setGroupId(targetId);       // 群聊用 groupId
+                } else {
+                    System.err.println("[HistoryService] 错误的聊天类型: " + chatType);
+                    if (callback != null) {
+                        callback.onHistoryLoaded(null, "错误的聊天类型: " + chatType);
+                    }
+                    return;
+                }
+
                 if (beforeTimestamp != null) {
                     request.setBeforeTimestamp(beforeTimestamp);
                 }
 
-                // 直接使用 sendRequest 方法（应该已经修复了）
+                // 打印请求详情
+                System.out.println("[HistoryService] 历史记录请求详情:");
+                System.out.println("  - chatType: " + request.getChatType());
+                System.out.println("  - targetUserId: " + request.getTargetUserId());
+                System.out.println("  - groupId: " + request.getGroupId());
+                System.out.println("  - limit: " + request.getLimit());
+
+                // 发送请求
                 String responseJson = client.sendRequest(request);
 
                 if (responseJson == null || responseJson.trim().isEmpty()) {

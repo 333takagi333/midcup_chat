@@ -71,9 +71,6 @@
             <Label fx:id="phoneLabel" GridPane.rowIndex="2" GridPane.columnIndex="1" />
             <TextField fx:id="phoneField" visible="false" GridPane.rowIndex="2" GridPane.columnIndex="1" />
 
-            <!-- 状态 -->
-            <Label text="状态:" GridPane.rowIndex="3" GridPane.columnIndex="0" style="-fx-font-weight: bold;" />
-            <Label fx:id="statusLabel" GridPane.rowIndex="3" GridPane.columnIndex="1" />
         </GridPane>
     </VBox>
 

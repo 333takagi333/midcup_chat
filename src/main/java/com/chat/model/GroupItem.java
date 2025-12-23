@@ -6,7 +6,6 @@ package com.chat.model;
 public class GroupItem {
     private final String groupId;
     private final String name;
-    private final String lastMessage;
     private final String memberCount;
     private final String avatarUrl;
 
@@ -14,14 +13,12 @@ public class GroupItem {
                      String memberCount, String avatarUrl) {
         this.groupId = groupId;
         this.name = name;
-        this.lastMessage = lastMessage;
         this.memberCount = memberCount;
         this.avatarUrl = avatarUrl;
     }
 
     public String getGroupId() { return groupId; }
     public String getName() { return name; }
-    public String getLastMessage() { return lastMessage; }
     public String getMemberCount() { return memberCount; }
     public String getAvatarUrl() { return avatarUrl; }
 }

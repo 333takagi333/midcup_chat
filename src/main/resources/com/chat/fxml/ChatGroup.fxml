@@ -36,8 +36,24 @@
     <HBox spacing="5" style="-fx-padding: 10; -fx-background-color: #ecf0f1;">
         <TextField fx:id="messageInput" HBox.hgrow="ALWAYS" promptText="输入群消息..."
                    style="-fx-background-radius: 5; -fx-border-radius: 5;" />
-        <Button text="发送" onAction="#sendMessage" defaultButton="true"
-                style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold;
-                       -fx-background-radius: 5; -fx-padding: 5 15;" />
+
+        <!-- 上传文件按钮 -->
+        <Button fx:id="fileUploadButton" text="📎"
+                style="-fx-background-color: #e74c3c;
+                       -fx-text-fill: white;
+                       -fx-font-size: 16px;
+                       -fx-background-radius: 5;
+                       -fx-padding: 5 10;
+                       -fx-cursor: hand;"
+                onAction="#handleFileUpload" />
+
+        <!-- 发送按钮 -->
+        <Button fx:id="sendButton" text="发送" onAction="#sendMessage" defaultButton="true"
+                style="-fx-background-color: #3498db;
+                       -fx-text-fill: white;
+                       -fx-font-weight: bold;
+                       -fx-background-radius: 5;
+                       -fx-padding: 5 15;
+                       -fx-cursor: hand;" />
     </HBox>
 </VBox>
