@@ -4,6 +4,7 @@ import com.chat.network.SocketClient;
 import com.chat.protocol.GroupDetailResponse;
 import com.chat.service.GroupDetailsService;
 import com.chat.ui.AvatarHelper;
+import com.chat.ui.DialogUtil;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
@@ -22,10 +23,9 @@ public class GroupDetailsControl implements Initializable {
 
     @FXML private ImageView groupAvatar;
     @FXML private Label groupNameLabel, groupIdLabel, memberCountLabel;
-    @FXML private TextField myNicknameField;
     @FXML private ListView<String> fileListView;
     @FXML private ListView<String> memberListView;
-    @FXML private Button saveNicknameButton, exitGroupButton, downloadButton;
+    @FXML private Button exitGroupButton, downloadButton, addMemberButton;
     @FXML private VBox mainContainer;
 
     // 业务服务
@@ -40,11 +40,6 @@ public class GroupDetailsControl implements Initializable {
     public void initialize(URL location, ResourceBundle resources) {
         AvatarHelper.setDefaultAvatar(groupAvatar, true, 100);
 
-        // 设置按钮事件
-        if (saveNicknameButton != null) {
-            saveNicknameButton.setOnAction(event -> handleSaveNickname());
-        }
-
         if (exitGroupButton != null) {
             exitGroupButton.setOnAction(event -> handleExitGroup());
             exitGroupButton.setStyle("-fx-background-color: #ff4444; -fx-text-fill: white;");
@@ -52,6 +47,11 @@ public class GroupDetailsControl implements Initializable {
 
         if (downloadButton != null) {
             downloadButton.setOnAction(event -> handleDownloadFile());
+        }
+
+        if (addMemberButton != null) {
+            addMemberButton.setOnAction(event -> handleAddMember());
+            addMemberButton.setStyle("-fx-background-color: #2ecc71; -fx-text-fill: white;");
         }
 
         // 初始化列表视图
@@ -86,7 +86,7 @@ public class GroupDetailsControl implements Initializable {
 
         } catch (NumberFormatException e) {
             System.err.println("[GroupDetailsControl] ID格式错误: " + e.getMessage());
-            Platform.runLater(() -> com.chat.ui.DialogUtil.showError(getCurrentWindow(), "ID格式错误"));
+            Platform.runLater(() -> DialogUtil.showError(getCurrentWindow(), "ID格式错误"));
         }
     }
 
@@ -136,7 +136,7 @@ public class GroupDetailsControl implements Initializable {
                     public void onFailure(String errorMessage) {
                         Platform.runLater(() -> {
                             setDefaultInfo();
-                            com.chat.ui.DialogUtil.showWarning(getCurrentWindow(), errorMessage);
+                            DialogUtil.showWarning(getCurrentWindow(), errorMessage);
                         });
                     }
                 });
@@ -156,10 +156,6 @@ public class GroupDetailsControl implements Initializable {
 
         if (response.getMemberCount() != null) {
             memberCountLabel.setText("成员: " + response.getMemberCount() + "人");
-        }
-
-        if (response.getMyNickname() != null) {
-            myNicknameField.setText(response.getMyNickname());
         }
 
         if (response.getAvatarUrl() != null && !response.getAvatarUrl().isEmpty()) {
@@ -208,23 +204,51 @@ public class GroupDetailsControl implements Initializable {
      */
     private void setDefaultInfo() {
         memberCountLabel.setText("成员: 加载中...");
-        myNicknameField.setText("我在本群的昵称");
     }
-
-    /**
-     * 处理保存昵称（调用服务处理）
-     */
-    private void handleSaveNickname() {
-        String nickname = myNicknameField.getText().trim();
-        groupDetailsService.updateGroupNickname(groupId, currentUserId, nickname, getCurrentWindow());
-    }
-
     /**
      * 处理下载文件（调用服务处理）
      */
     private void handleDownloadFile() {
         String selectedFile = fileListView.getSelectionModel().getSelectedItem();
         groupDetailsService.downloadGroupFile(groupId, "", selectedFile, getCurrentWindow());
+    }
+
+    /**
+     * 处理添加成员
+     */
+    private void handleAddMember() {
+        if (groupId == null || currentUserId == null) {
+            DialogUtil.showError(getCurrentWindow(), "无法添加成员：信息不完整");
+            return;
+        }
+
+        // 显示好友选择对话框
+        com.chat.ui.FriendSelectorDialog selector =
+                new com.chat.ui.FriendSelectorDialog(
+                        getCurrentWindow(),
+                        groupDetailsService,
+                        currentUserId,
+                        groupId,  // 添加群ID参数
+                        new GroupDetailsService.FriendSelectCallback() {
+                            @Override
+                            public void onFriendSelected(Long friendId, String friendUsername) {
+                                // 添加选中的好友到群聊
+                                groupDetailsService.addMemberToGroup(
+                                        groupId,
+                                        friendId,
+                                        friendUsername,
+                                        currentUserId,
+                                        getCurrentWindow(),
+                                        () -> {
+                                            // 成功后的回调：刷新群成员列表
+                                            loadGroupDetails();
+                                        }
+                                );
+                            }
+                        }
+                );
+
+        selector.show();
     }
 
     /**

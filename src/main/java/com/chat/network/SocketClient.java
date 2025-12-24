@@ -292,6 +292,12 @@ public class SocketClient {
     public String sendFileDownloadRequest(FileDownloadRequest request) {
         return sendRequest(request);
     }
+    /**
+     * 发送添加群成员请求
+     */
+    public String sendGroupAddMemberRequest(GroupAddMemberRequest request) {
+        return sendRequest(request);
+    }
     // ==================== 通用消息发送 ====================
 
     /**
