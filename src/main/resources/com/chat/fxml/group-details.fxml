@@ -26,7 +26,6 @@
                     <Label fx:id="groupIdLabel" style="-fx-font-size: 14px; -fx-text-fill: #7f8c8d;" />
                     <HBox spacing="10">
                         <Label fx:id="memberCountLabel" style="-fx-font-size: 12px; -fx-text-fill: #7f8c8d;" />
-                        <Label fx:id="createTimeLabel" style="-fx-font-size: 12px; -fx-text-fill: #7f8c8d;" />
                     </HBox>
                 </VBox>
             </HBox>
@@ -34,20 +33,13 @@
             <!-- 分隔线 -->
             <Separator />
 
-            <!-- 我在本群的昵称 -->
-            <VBox spacing="8">
-                <Label text="我在本群的昵称" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;" />
-                <HBox spacing="10" alignment="CENTER_LEFT">
-                    <TextField fx:id="myNicknameField" HBox.hgrow="ALWAYS" promptText="设置你的群昵称..."
-                               style="-fx-background-radius: 5; -fx-border-radius: 5;" />
-                    <Button fx:id="saveNicknameButton" text="保存昵称"
-                            style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-padding: 5 15;" />
-                </HBox>
-            </VBox>
-
             <!-- 群成员 -->
             <VBox spacing="8">
-                <Label text="群成员" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;" />
+                <HBox alignment="CENTER_LEFT" spacing="10">
+                    <Label text="群成员" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;" />
+                    <Button fx:id="addMemberButton" text="+ 添加成员"
+                            style="-fx-background-color: #2ecc71; -fx-text-fill: white; -fx-padding: 3 10;" />
+                </HBox>
                 <ListView fx:id="memberListView" prefHeight="200"
                           style="-fx-background-color: #f8f9fa; -fx-border-color: #ddd; -fx-border-radius: 5;" />
             </VBox>

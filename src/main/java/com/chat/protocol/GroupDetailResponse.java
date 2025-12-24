@@ -14,19 +14,14 @@ public class GroupDetailResponse {
     private Long groupId;
     private String groupName;
     private String avatarUrl;
-    private String notice;        // 群公告
 
     // 群成员信息
     private Integer memberCount;  // 成员数量
 
-    // 当前用户在本群的信息
-    private String myNickname;    // 我的群昵称
-    private Integer role;         // 角色 0:普通成员 1:管理员 2:群主
-
     // 群文件列表
     private List<GroupFile> files;
 
-    // 群成员列表（简化版）
+    // 群成员列表
     private List<GroupMember> members;
 
     public GroupDetailResponse() {}
@@ -62,7 +57,6 @@ public class GroupDetailResponse {
         private String avatarUrl;
         private String nickname;   // 在群里的昵称
         private Integer role;      // 角色 0:成员 1:管理员 2:群主
-        private Integer status;    // 状态 0:离线 1:在线 2:忙碌 3:隐身
 
         public GroupMember() {}
 
@@ -80,9 +74,6 @@ public class GroupDetailResponse {
 
         public Integer getRole() { return role; }
         public void setRole(Integer role) { this.role = role; }
-
-        public Integer getStatus() { return status; }
-        public void setStatus(Integer status) { this.status = status; }
     }
 
     public String getType() { return type; }
@@ -103,17 +94,8 @@ public class GroupDetailResponse {
     public String getAvatarUrl() { return avatarUrl; }
     public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
 
-    public String getNotice() { return notice; }
-    public void setNotice(String notice) { this.notice = notice; }
-
     public Integer getMemberCount() { return memberCount; }
     public void setMemberCount(Integer memberCount) { this.memberCount = memberCount; }
-
-    public String getMyNickname() { return myNickname; }
-    public void setMyNickname(String myNickname) { this.myNickname = myNickname; }
-
-    public Integer getRole() { return role; }
-    public void setRole(Integer role) { this.role = role; }
 
     public List<GroupFile> getFiles() { return files; }
     public void setFiles(List<GroupFile> files) { this.files = files; }
