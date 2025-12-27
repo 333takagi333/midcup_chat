@@ -8,6 +8,9 @@ public class FileDownloadRequest {
     private String fileId;        // 文件ID
     private Long userId;          // 请求下载的用户ID
     private String chatType;      // "private" 或 "group"
+    private Long contactId;       // 私聊联系人ID（如果是私聊文件）
+    private Long groupId;         // 群聊ID（如果是群聊文件）
+    private String fileName;      // 文件名（用于验证）
 
     // 构造方法
     public FileDownloadRequest() {
@@ -51,6 +54,30 @@ public class FileDownloadRequest {
         this.chatType = chatType;
     }
 
+    public Long getContactId() {
+        return contactId;
+    }
+
+    public void setContactId(Long contactId) {
+        this.contactId = contactId;
+    }
+
+    public Long getGroupId() {
+        return groupId;
+    }
+
+    public void setGroupId(Long groupId) {
+        this.groupId = groupId;
+    }
+
+    public String getFileName() {
+        return fileName;
+    }
+
+    public void setFileName(String fileName) {
+        this.fileName = fileName;
+    }
+
     @Override
     public String toString() {
         return "FileDownloadRequest{" +
@@ -58,6 +85,9 @@ public class FileDownloadRequest {
                 ", fileId='" + fileId + '\'' +
                 ", userId=" + userId +
                 ", chatType='" + chatType + '\'' +
+                ", contactId=" + contactId +
+                ", groupId=" + groupId +
+                ", fileName='" + fileName + '\'' +
                 '}';
     }
 }

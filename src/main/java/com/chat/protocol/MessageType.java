@@ -61,8 +61,7 @@ public final class MessageType {
     public static final String GROUP_DETAIL_RESPONSE = "group_detail_response";
     public static final String EXIT_GROUP_REQUEST = "exit_group_request";
     public static final String EXIT_GROUP_RESPONSE = "exit_group_response";
-    public static final String UPDATE_NICKNAME_REQUEST = "update_nickname_request";
-    public static final String UPDATE_NICKNAME_RESPONSE = "update_nickname_response";
+
     // 群成员管理相关
     public static final String GROUP_ADD_MEMBER_REQUEST = "group_add_member_request";
     public static final String GROUP_ADD_MEMBER_RESPONSE = "group_add_member_response";
@@ -72,5 +71,10 @@ public final class MessageType {
     public static final String FILE_UPLOAD_RESPONSE = "file_upload_response";
     public static final String FILE_DOWNLOAD_REQUEST = "file_download_request";
     public static final String FILE_DOWNLOAD_RESPONSE = "file_download_response";
+    // 文件发送相关
+    public static final String FILE_PRIVATE_SEND = "file_private_send";
+    public static final String FILE_GROUP_SEND = "file_group_send";
+    public static final String FILE_PRIVATE_RECEIVE = "file_private_receive";
+    public static final String FILE_GROUP_RECEIVE = "file_group_receive";
 
 }

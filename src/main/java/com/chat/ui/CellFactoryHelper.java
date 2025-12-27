@@ -29,28 +29,33 @@ public final class CellFactoryHelper {
                     HBox cell = new HBox(10);
                     cell.setStyle("-fx-padding: 10; -fx-alignment: center-left;");
 
+                    // 左侧：头像
                     ImageView avatar = new ImageView();
                     AvatarHelper.loadAvatar(avatar, item.getAvatarUrl(), item.isGroup());
                     avatar.setFitWidth(50);
                     avatar.setFitHeight(50);
 
+                    // 中间：消息内容
                     VBox content = new VBox(5);
                     Label nameLabel = new Label(item.getName());
                     nameLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14;");
 
+                    // 消息预览（已包含发送者信息）
                     Label messageLabel = new Label(item.getLastMessage());
                     messageLabel.setStyle("-fx-text-fill: #666; -fx-font-size: 12;");
 
                     content.getChildren().addAll(nameLabel, messageLabel);
 
+                    // 右侧：时间和未读标记
                     VBox rightPanel = new VBox(5);
                     Label timeLabel = new Label(item.getTime());
                     timeLabel.setStyle("-fx-text-fill: #999; -fx-font-size: 11;");
 
                     if (item.isUnread()) {
-                        Label unreadLabel = new Label("●");
-                        unreadLabel.setStyle("-fx-text-fill: red; -fx-font-size: 16;");
-                        rightPanel.getChildren().addAll(timeLabel, unreadLabel);
+                        // 显示红点
+                        Label unreadDot = new Label("●");
+                        unreadDot.setStyle("-fx-text-fill: #ff3b30; -fx-font-size: 16;");
+                        rightPanel.getChildren().addAll(timeLabel, unreadDot);
                     } else {
                         rightPanel.getChildren().add(timeLabel);
                     }

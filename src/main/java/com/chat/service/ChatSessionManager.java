@@ -1,5 +1,6 @@
 package com.chat.service;
 
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -10,6 +11,9 @@ public class ChatSessionManager {
 
     private static ChatSessionManager instance;
 
+    // 登录时间戳
+    private final long loginTimestamp;
+
     // 存储私聊会话记录：key = "private_userId_contactId"
     private final Map<String, List<String>> privateSessions = new ConcurrentHashMap<>();
 
@@ -17,7 +21,9 @@ public class ChatSessionManager {
     private final Map<String, List<String>> groupSessions = new ConcurrentHashMap<>();
 
     private ChatSessionManager() {
-        System.out.println("[ChatSessionManager] 初始化");
+        this.loginTimestamp = System.currentTimeMillis();
+        System.out.println("[ChatSessionManager] 初始化，登录时间: " +
+                new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(loginTimestamp)));
     }
 
     public static synchronized ChatSessionManager getInstance() {
@@ -40,7 +46,7 @@ public class ChatSessionManager {
             messages.remove(0);
         }
 
-        System.out.println("[ChatSessionManager] 添加私聊消息到会话 " + key + ", 当前消息数: " + messages.size());
+        System.out.println("[ChatSessionManager] 添加到本次登录会话 " + key + ", 当前消息数: " + messages.size());
     }
 
     /**
@@ -56,7 +62,7 @@ public class ChatSessionManager {
             messages.remove(0);
         }
 
-        System.out.println("[ChatSessionManager] 添加群聊消息到会话 " + key + ", 当前消息数: " + messages.size());
+        System.out.println("[ChatSessionManager] 添加到本次登录会话 " + key + ", 当前消息数: " + messages.size());
     }
 
     /**
@@ -108,9 +114,16 @@ public class ChatSessionManager {
             groupCount += session.size();
         }
 
-        return String.format("聊天会话: %d个私聊会话(%d条消息), %d个群聊会话(%d条消息)",
+        return String.format("本次登录聊天会话: %d个私聊会话(%d条消息), %d个群聊会话(%d条消息)",
                 privateSessions.size(), privateCount,
                 groupSessions.size(), groupCount);
+    }
+
+    /**
+     * 获取登录时间戳
+     */
+    public long getLoginTimestamp() {
+        return loginTimestamp;
     }
 
     private String buildPrivateKey(Long userId, Long contactId) {
