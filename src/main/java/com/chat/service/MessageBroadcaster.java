@@ -1,9 +1,8 @@
 package com.chat.service;
 
 import javafx.application.Platform;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.text.SimpleDateFormat;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -53,44 +52,6 @@ public class MessageBroadcaster {
         void onNewGroupMessage(Long groupId, String groupName, String content, long timestamp, Long messageId);
     }
 
-    // 添加文件消息监听器接口
-    public interface FileMessageListener {
-        void onFileMessageReceived(String chatType, Long senderId, Long targetId,
-                                   String fileName, long fileSize, String fileType,
-                                   String downloadUrl, long timestamp);
-    }
-
-    // 添加文件消息广播方法
-    public void broadcastFileMessage(String chatType, Long senderId, Long targetId,
-                                     String fileName, long fileSize, String fileType,
-                                     String downloadUrl, long timestamp) {
-
-        String messageKey = String.format("file_%s_%d_%d_%s_%d",
-                chatType, senderId, targetId, fileName, timestamp);
-
-        if (isDuplicateMessage(messageKey, null)) {
-            return;
-        }
-
-        // 根据聊天类型广播
-        if ("private".equals(chatType)) {
-            // 广播给私聊窗口
-            String senderKey = "private_" + senderId + "_" + targetId;
-            String receiverKey = "private_" + targetId + "_" + senderId;
-
-            // 类似文本消息的广播逻辑
-        } else if ("group".equals(chatType)) {
-            // 广播给群聊窗口
-            List<GroupMessageListener> listeners = groupListeners.get(targetId.toString());
-            if (listeners != null) {
-                Platform.runLater(() -> {
-                    for (GroupMessageListener listener : listeners) {
-                        // 可以调用新的方法或使用现有方法
-                    }
-                });
-            }
-        }
-    }
     // ========== 配置方法 ==========
 
     /**
@@ -207,8 +168,7 @@ public class MessageBroadcaster {
     }
 
     /**
-     * 广播私聊消息（核心方法）
-     * 关键：接收方会在聊天列表中看到消息，发送方不会
+     * 广播私聊消息（核心方法）- 显示最后一人发的消息
      */
     public void broadcastPrivateMessage(Long fromUserId, Long toUserId, String content,
                                         long timestamp, String contactName, Long messageId) {
@@ -222,24 +182,80 @@ public class MessageBroadcaster {
         }
 
         System.out.println("[MessageBroadcaster] 广播私聊消息: " + fromUserId + " -> " + toUserId +
-                ", 当前用户: " + currentUserId + ", 内容长度: " + (content != null ? content.length() : 0));
+                ", 当前用户: " + currentUserId + ", 消息ID: " + messageId + ", 内容: " +
+                (content.length() > 20 ? content.substring(0, 20) + "..." : content));
 
-        // ========== 1. 通知聊天列表 ==========
+        // 判断当前用户是发送方还是接收方
+        boolean isCurrentUserSender = currentUserId != null && currentUserId.equals(fromUserId);
+        boolean isCurrentUserReceiver = currentUserId != null && currentUserId.equals(toUserId);
+        boolean isFromCurrentUser = isCurrentUserSender;
+
+        // ========== 1. 保存到会话管理器 ==========
+        SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm");
+        String time = timeFormat.format(new Date(timestamp));
+
+        // 生成显示消息
+        String senderDisplayName = isFromCurrentUser ? "我" : contactName;
+        String displayMessage = String.format("[%s] %s: %s", time, senderDisplayName, content);
+
+        // 保存到会话管理器
+        ChatSessionManager sessionManager = ChatSessionManager.getInstance();
+
+        if (isCurrentUserSender) {
+            // 当前用户是发送方，保存到发送方会话
+            sessionManager.addPrivateMessage(fromUserId, toUserId, displayMessage);
+            System.out.println("[MessageBroadcaster] 保存到发送方会话: " + fromUserId + " -> " + toUserId);
+        } else if (isCurrentUserReceiver) {
+            // 当前用户是接收方，保存到接收方会话
+            sessionManager.addPrivateMessage(toUserId, fromUserId, displayMessage);
+            System.out.println("[MessageBroadcaster] 保存到接收方会话: " + toUserId + " <- " + fromUserId);
+        }
+
+        // ========== 2. 更新最近消息服务（显示最后一人发的消息） ==========
+        RecentMessageService recentService = RecentMessageService.getInstance();
+
+        // 确定聊天ID和显示名称
+        String chatId;
+        String chatDisplayName;
+
+        if (isCurrentUserReceiver) {
+            // 当前用户是接收方，聊天ID为对方ID，显示对方名称
+            chatId = fromUserId.toString();
+            chatDisplayName = contactName;
+        } else if (isCurrentUserSender) {
+            // 当前用户是发送方，聊天ID为对方ID，显示"我"（表示这是与对方的对话）
+            chatId = toUserId.toString();
+            chatDisplayName = "我";
+        } else {
+            // 当前用户不是参与者，不更新最近消息
+            chatId = null;
+            chatDisplayName = null;
+        }
+
+        if (chatId != null) {
+            recentService.updateRecentMessage(
+                    chatId,
+                    chatDisplayName,
+                    senderDisplayName, // 发送者名称：我 或 对方名称
+                    content,
+                    "", // 头像URL
+                    false, // 不是群聊
+                    isFromCurrentUser // 是否当前用户发送
+            );
+
+            System.out.println("[MessageBroadcaster] 更新最近消息: " + chatDisplayName +
+                    " (" + senderDisplayName + "发送)");
+        }
+
+        // ========== 3. 通知聊天列表（只通知接收方） ==========
         Platform.runLater(() -> {
             for (ChatListUpdateListener listener : chatListListeners) {
                 try {
-                    // 关键逻辑：判断当前用户是发送方还是接收方
-                    if (currentUserId != null) {
-                        if (currentUserId.equals(toUserId)) {
-                            // 当前用户是接收方 - 应该在聊天列表中看到发送方的消息
-                            listener.onNewPrivateMessage(fromUserId, contactName, content, timestamp, messageId);
-                            System.out.println("[MessageBroadcaster] 通知接收方聊天列表: " + fromUserId + " -> " + toUserId);
-                        }
-                        // 注意：发送方不应该在自己的聊天列表中看到自己
-                        // 所以当 currentUserId.equals(fromUserId) 时，不通知聊天列表
-                    } else {
-                        // 如果没有设置当前用户ID，默认通知所有监听器（兼容模式）
+                    // 只有当当前用户是接收方时，才更新聊天列表
+                    // 发送方不应该在自己的聊天列表中看到自己发送的消息
+                    if (isCurrentUserReceiver) {
                         listener.onNewPrivateMessage(fromUserId, contactName, content, timestamp, messageId);
+                        System.out.println("[MessageBroadcaster] 通知接收方聊天列表: " + fromUserId + " -> " + toUserId);
                     }
                 } catch (Exception e) {
                     System.err.println("[MessageBroadcaster] 通知聊天列表监听器失败: " + e.getMessage());
@@ -248,7 +264,7 @@ public class MessageBroadcaster {
             }
         });
 
-        // ========== 2. 通知接收方相关的私聊窗口 ==========
+        // ========== 4. 通知接收方相关的私聊窗口 ==========
         // 接收方视角：private_接收方ID_发送方ID
         String receiverKey = "private_" + toUserId + "_" + fromUserId;
         List<PrivateMessageListener> receiverListeners = privateListeners.get(receiverKey);
@@ -265,7 +281,7 @@ public class MessageBroadcaster {
             });
         }
 
-        // ========== 3. 通知发送方相关的私聊窗口 ==========
+        // ========== 5. 通知发送方相关的私聊窗口 ==========
         // 发送方视角：private_发送方ID_接收方ID
         String senderKey = "private_" + fromUserId + "_" + toUserId;
         List<PrivateMessageListener> senderListeners = privateListeners.get(senderKey);
@@ -282,20 +298,20 @@ public class MessageBroadcaster {
             });
         }
 
-        // ========== 4. 特殊处理：如果接收方没有打开窗口，确保发送方能看到自己的消息 ==========
-        // 发送方可能在窗口中看到自己发送的消息，即使接收方没有打开窗口
-        if (currentUserId != null && currentUserId.equals(fromUserId)) {
-            // 确保发送方能在自己的聊天窗口中看到消息
+        // ========== 6. 特殊处理：发送方自我反馈 ==========
+        if (isCurrentUserSender) {
+            System.out.println("[MessageBroadcaster] 发送方消息已处理: " + fromUserId + " -> " + toUserId);
+
+            // 如果发送方没有打开聊天窗口，这里可以做一些额外处理
             if ((receiverListeners == null || receiverListeners.isEmpty()) &&
                     (senderListeners == null || senderListeners.isEmpty())) {
-                // 如果双方都没有打开窗口，但发送方需要立即看到反馈
-                System.out.println("[MessageBroadcaster] 消息已发送，但双方都没有打开聊天窗口");
+                System.out.println("[MessageBroadcaster] 双方都未打开聊天窗口，消息已保存到会话");
             }
         }
     }
 
     /**
-     * 广播群聊消息
+     * 广播群聊消息 - 显示最后一人发的消息
      */
     public void broadcastGroupMessage(Long groupId, Long fromUserId, String content,
                                       long timestamp, String groupName, Long messageId) {
@@ -309,10 +325,43 @@ public class MessageBroadcaster {
         }
 
         System.out.println("[MessageBroadcaster] 广播群聊消息: 群组" + groupId + ", 发送者" + fromUserId +
-                ", 当前用户: " + currentUserId + ", 内容长度: " + (content != null ? content.length() : 0));
+                ", 当前用户: " + currentUserId + ", 内容: " +
+                (content.length() > 20 ? content.substring(0, 20) + "..." : content));
 
-        // ========== 1. 通知聊天列表 ==========
-        // 群聊消息总是通知聊天列表（无论谁发送的）
+        // 判断是否来自当前用户
+        boolean isFromCurrentUser = currentUserId != null && currentUserId.equals(fromUserId);
+
+        // ========== 1. 保存到会话管理器 ==========
+        SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm");
+        String time = timeFormat.format(new Date(timestamp));
+
+        // 生成显示消息
+        String senderDisplayName = isFromCurrentUser ? "我" : "用户" + fromUserId;
+        String displayMessage = String.format("[%s] %s: %s", time, senderDisplayName, content);
+
+        ChatSessionManager sessionManager = ChatSessionManager.getInstance();
+        sessionManager.addGroupMessage(groupId, displayMessage);
+
+        System.out.println("[MessageBroadcaster] 保存到群聊会话: " + groupName);
+
+        // ========== 2. 更新最近消息服务（群聊） ==========
+        RecentMessageService recentService = RecentMessageService.getInstance();
+
+        // 更新群聊最近消息（显示最后一人发的消息）
+        recentService.updateRecentMessage(
+                groupId.toString(),
+                groupName,
+                senderDisplayName, // 发送者名称：我 或 用户X
+                content,
+                "", // 群聊头像
+                true, // 是群聊
+                isFromCurrentUser // 是否当前用户发送
+        );
+
+        System.out.println("[MessageBroadcaster] 更新群聊最近消息: " + groupName +
+                " (" + senderDisplayName + "发送)");
+
+        // ========== 3. 通知聊天列表（群聊消息总是通知） ==========
         Platform.runLater(() -> {
             for (ChatListUpdateListener listener : chatListListeners) {
                 try {
@@ -324,7 +373,7 @@ public class MessageBroadcaster {
             }
         });
 
-        // ========== 2. 通知所有打开该群聊的窗口 ==========
+        // ========== 4. 通知所有打开该群聊的窗口 ==========
         List<GroupMessageListener> listeners = groupListeners.get(groupId.toString());
         if (listeners != null && !listeners.isEmpty()) {
             Platform.runLater(() -> {
@@ -341,26 +390,155 @@ public class MessageBroadcaster {
     }
 
     /**
-     * 专门用于发送方立即看到自己的消息（不触发聊天列表更新）
+     * 广播发送方立即看到自己的消息（用于消息发送后的即时反馈）
      */
-    public void broadcastSelfMessage(Long fromUserId, Long toUserId, String content,
-                                     long timestamp, String contactName) {
-        System.out.println("[MessageBroadcaster] 广播发送方自己的消息: " + fromUserId + " -> " + toUserId);
+    public void broadcastSelfMessageForImmediateFeedback(Long fromUserId, Long toUserId, String content,
+                                                         long timestamp, String contactName) {
+        System.out.println("[MessageBroadcaster] 广播发送方即时反馈: " + fromUserId + " -> " + toUserId);
 
-        // 只通知发送方的聊天窗口，不通知聊天列表
+        // 只通知发送方的聊天窗口
+        String senderKey = "private_" + fromUserId + "_" + toUserId;
+        List<PrivateMessageListener> senderListeners = privateListeners.get(senderKey);
+
+        if (senderListeners != null && !senderListeners.isEmpty()) {
+            Platform.runLater(() -> {
+                for (PrivateMessageListener listener : senderListeners) {
+                    try {
+                        listener.onPrivateMessageReceived(fromUserId, toUserId, content, timestamp, null);
+                        System.out.println("[MessageBroadcaster] 发送方即时反馈: " + senderKey);
+                    } catch (Exception e) {
+                        System.err.println("[MessageBroadcaster] 发送方即时反馈失败: " + e.getMessage());
+                    }
+                }
+            });
+        }
+    }
+
+    /**
+     * 广播历史消息（用于从服务器加载的历史消息）
+     */
+    public void broadcastHistoricalPrivateMessage(Long fromUserId, Long toUserId, String content,
+                                                  long timestamp, String contactName, Long messageId,
+                                                  boolean isFromCurrentUser) {
+
+        System.out.println("[MessageBroadcaster] 广播历史私聊消息: " + fromUserId + " -> " + toUserId +
+                ", 消息ID: " + messageId + ", 来自当前用户: " + isFromCurrentUser);
+
+        // 生成消息唯一标识
+        String messageKey = "history_private_" + fromUserId + "_" + toUserId + "_" + messageId;
+
+        // 检查是否为重复历史消息
+        if (isDuplicateMessage(messageKey, messageId)) {
+            System.out.println("[MessageBroadcaster] 跳过重复的历史消息: " + messageKey);
+            return;
+        }
+
+        // 只通知窗口显示历史消息，不更新最近消息服务
+
+        // 通知接收方相关的私聊窗口
+        String receiverKey = "private_" + toUserId + "_" + fromUserId;
+        List<PrivateMessageListener> receiverListeners = privateListeners.get(receiverKey);
+        if (receiverListeners != null && !receiverListeners.isEmpty()) {
+            Platform.runLater(() -> {
+                for (PrivateMessageListener listener : receiverListeners) {
+                    try {
+                        listener.onPrivateMessageReceived(fromUserId, toUserId, content, timestamp, messageId);
+                        System.out.println("[MessageBroadcaster] 通知接收方历史消息: " + receiverKey);
+                    } catch (Exception e) {
+                        System.err.println("[MessageBroadcaster] 通知接收方历史消息失败: " + e.getMessage());
+                    }
+                }
+            });
+        }
+
+        // 通知发送方相关的私聊窗口
         String senderKey = "private_" + fromUserId + "_" + toUserId;
         List<PrivateMessageListener> senderListeners = privateListeners.get(senderKey);
         if (senderListeners != null && !senderListeners.isEmpty()) {
             Platform.runLater(() -> {
                 for (PrivateMessageListener listener : senderListeners) {
                     try {
-                        listener.onPrivateMessageReceived(fromUserId, toUserId, content, timestamp, null);
-                        System.out.println("[MessageBroadcaster] 通知发送方自己看到消息: " + senderKey);
+                        listener.onPrivateMessageReceived(fromUserId, toUserId, content, timestamp, messageId);
+                        System.out.println("[MessageBroadcaster] 通知发送方历史消息: " + senderKey);
                     } catch (Exception e) {
-                        System.err.println("[MessageBroadcaster] 通知发送方自己失败: " + e.getMessage());
+                        System.err.println("[MessageBroadcaster] 通知发送方历史消息失败: " + e.getMessage());
                     }
                 }
             });
+        }
+    }
+
+    /**
+     * 广播文件消息
+     */
+    public void broadcastFileMessage(String chatType, Long senderId, Long targetId,
+                                     String fileName, long fileSize, String fileType,
+                                     String downloadUrl, long timestamp) {
+
+        String messageKey = String.format("file_%s_%d_%d_%s_%d",
+                chatType, senderId, targetId, fileName, timestamp);
+
+        if (isDuplicateMessage(messageKey, null)) {
+            return;
+        }
+
+        System.out.println("[MessageBroadcaster] 广播文件消息: " + fileName + " (" + chatType + ")");
+
+        // 根据聊天类型处理
+        if ("private".equals(chatType)) {
+            // 私聊文件消息
+            String senderKey = "private_" + senderId + "_" + targetId;
+            String receiverKey = "private_" + targetId + "_" + senderId;
+
+            // 更新最近消息服务
+            RecentMessageService recentService = RecentMessageService.getInstance();
+            boolean isFromCurrentUser = currentUserId != null && currentUserId.equals(senderId);
+
+            // 确定聊天ID和名称
+            String chatId;
+            String chatName;
+            if (currentUserId != null && currentUserId.equals(targetId)) {
+                // 当前用户是接收方
+                chatId = senderId.toString();
+                chatName = "用户" + senderId;
+            } else if (isFromCurrentUser) {
+                // 当前用户是发送方
+                chatId = targetId.toString();
+                chatName = "我";
+            } else {
+                chatId = null;
+                chatName = null;
+            }
+
+            if (chatId != null) {
+                recentService.updateRecentMessage(
+                        chatId,
+                        chatName,
+                        isFromCurrentUser ? "我" : "用户" + senderId,
+                        "[" + fileType + "] " + fileName,
+                        "",
+                        false,
+                        isFromCurrentUser
+                );
+            }
+
+        } else if ("group".equals(chatType)) {
+            // 群聊文件消息
+            RecentMessageService recentService = RecentMessageService.getInstance();
+            boolean isFromCurrentUser = currentUserId != null && currentUserId.equals(senderId);
+
+            // 这里需要获取群聊名称，简化处理
+            String groupName = "群聊" + targetId;
+
+            recentService.updateRecentMessage(
+                    targetId.toString(),
+                    groupName,
+                    isFromCurrentUser ? "我" : "用户" + senderId,
+                    "[" + fileType + "] " + fileName,
+                    "",
+                    true,
+                    isFromCurrentUser
+            );
         }
     }
 
@@ -387,6 +565,15 @@ public class MessageBroadcaster {
         stats.append("群聊监听器: ").append(groupListeners.size()).append(" 个键\n");
         stats.append("聊天列表监听器: ").append(chatListListeners.size()).append(" 个\n");
         stats.append("消息缓存: ").append(lastProcessedMessages.size()).append(" 条\n");
+
+        // 添加最近消息统计
+        try {
+            RecentMessageService recentService = RecentMessageService.getInstance();
+            stats.append("最近消息: ").append(recentService.getAllRecentMessages().size()).append(" 条\n");
+        } catch (Exception e) {
+            stats.append("最近消息: 无法获取\n");
+        }
+
         return stats.toString();
     }
 }

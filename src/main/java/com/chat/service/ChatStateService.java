@@ -24,6 +24,7 @@ public class ChatStateService implements MessageBroadcaster.ChatListUpdateListen
     private final ObservableList<GroupItem> groupItems = FXCollections.observableArrayList();
 
     private final MessageBroadcaster broadcaster = MessageBroadcaster.getInstance();
+    private final RecentMessageService recentService = RecentMessageService.getInstance();
 
     public ChatStateService() {
         // 注册为聊天列表监听器
@@ -43,31 +44,91 @@ public class ChatStateService implements MessageBroadcaster.ChatListUpdateListen
     }
 
     @Override
-    public void onNewPrivateMessage(Long contactId, String contactName, String content, long timestamp, Long messageId) {
-        System.out.println("[ChatStateService] 收到私聊消息: " + contactName + ": " + content);
+    public void onNewPrivateMessage(Long contactId, String contactName, String content,
+                                    long timestamp, Long messageId) {
+        System.out.println("[ChatStateService] 收到私聊消息: " + contactName + ": " +
+                content.substring(0, Math.min(20, content.length())));
 
+        // 这里不再直接更新最近消息服务（由MessageBroadcaster处理）
+        // 只更新聊天列表UI
+
+        // 截取预览消息
+        String preview = content.length() > 30 ?
+                content.substring(0, 30) + "..." : content;
+
+        // 获取当前用户ID（从MessageBroadcaster）
+        Long currentUserId = broadcaster.getCurrentUserId();
+
+        // 判断消息是否来自当前用户
+        boolean isFromCurrentUser = messageId != null &&
+                currentUserId != null && currentUserId.equals(contactId);
+
+        String displayText;
+        if (isFromCurrentUser) {
+            // 当前用户发送的消息，显示"我: 内容"
+            displayText = "我: " + preview;
+        } else {
+            // 对方发送的消息，显示"对方: 内容"
+            displayText = contactName + ": " + preview;
+        }
+
+        // 更新聊天列表
         upsertChat(
                 contactId.toString(),
                 contactName,
                 null,
-                content,
-                true,
+                displayText,
+                true, // 有未读消息
                 false
         );
     }
 
     @Override
-    public void onNewGroupMessage(Long groupId, String groupName, String content, long timestamp, Long messageId) {
-        System.out.println("[ChatStateService] 收到群聊消息: " + groupName + ": " + content);
+    public void onNewGroupMessage(Long groupId, String groupName, String content,
+                                  long timestamp, Long messageId) {
+        System.out.println("[ChatStateService] 收到群聊消息: " + groupName + ": " +
+                content.substring(0, Math.min(20, content.length())));
 
+        // 截取预览消息
+        String preview = content.length() > 30 ?
+                content.substring(0, 30) + "..." : content;
+
+        // 获取当前用户ID
+        Long currentUserId = broadcaster.getCurrentUserId();
+
+        // 这里简化处理，实际应该从消息中获取发送者ID
+        // 假设如果消息包含"我:"前缀，则是当前用户发送的
+        boolean isFromCurrentUser = content.startsWith("我:");
+
+        String displayText;
+        if (isFromCurrentUser) {
+            displayText = "我: " + preview;
+        } else {
+            // 在群聊中显示"用户X: 内容"或"发送者: 内容"
+            displayText = "群成员: " + preview;
+        }
+
+        // 更新聊天列表
         upsertChat(
                 groupId.toString(),
                 groupName,
                 null,
-                content,
-                true,
+                displayText,
+                true, // 有未读消息
                 true
         );
+    }
+
+    /**
+     * 初始化消息栏（应用启动时调用）
+     */
+    public void initializeRecentMessages() {
+        // 从 RecentMessageService 加载所有最近消息
+        List<ChatItem> recentMessages = recentService.getAllRecentMessages();
+        if (recentMessages != null && !recentMessages.isEmpty()) {
+            chatItems.setAll(recentMessages);
+            System.out.println("[ChatStateService] 初始化消息栏: " + recentMessages.size() + " 条记录");
+        }
     }
 
     /**
@@ -180,7 +241,8 @@ public class ChatStateService implements MessageBroadcaster.ChatListUpdateListen
             chatItems.add(0, newItem);
         }
 
-        System.out.println("[ChatStateService] 更新聊天列表: " + displayName + " - " + messageText);
+        System.out.println("[ChatStateService] 更新聊天列表: " + displayName + " - " +
+                messageText.substring(0, Math.min(20, messageText.length())));
     }
 
     /**

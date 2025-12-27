@@ -25,7 +25,7 @@ public class UserProfileControl implements Initializable {
 
     // FXML控件
     @FXML private ImageView avatarImage;
-    @FXML private Label usernameLabel, userIdLabel, statusLabel, genderLabel, birthdayLabel, phoneLabel;
+    @FXML private Label usernameLabel, userIdLabel, genderLabel, birthdayLabel, phoneLabel;
     @FXML private TextField usernameField;
     @FXML private ComboBox<String> genderComboBox;
     @FXML private TextField birthdayField, phoneField;
@@ -64,7 +64,6 @@ public class UserProfileControl implements Initializable {
         Platform.runLater(() -> {
             usernameLabel.setText(username != null ? username : "未知用户");
             userIdLabel.setText(userId != null ? userId : "未知");
-            statusLabel.setText("在线");
             genderLabel.setText("未知");
             birthdayLabel.setText("未设置");
             phoneLabel.setText("未设置");

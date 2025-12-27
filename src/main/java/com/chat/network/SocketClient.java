@@ -293,6 +293,19 @@ public class SocketClient {
         return sendRequest(request);
     }
     /**
+     * 发送私聊文件消息
+     */
+    public boolean sendPrivateFileMessage(FilePrivateSend message) {
+        return sendMessage(message);
+    }
+
+    /**
+     * 发送群聊文件消息
+     */
+    public boolean sendGroupFileMessage(FileGroupSend message) {
+        return sendMessage(message);
+    }
+    /**
      * 发送添加群成员请求
      */
     public String sendGroupAddMemberRequest(GroupAddMemberRequest request) {

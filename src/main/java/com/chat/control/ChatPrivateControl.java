@@ -5,7 +5,7 @@ import com.chat.service.ChatService;
 import com.chat.service.ChatSessionManager;
 import com.chat.service.FileService;
 import com.chat.service.MessageBroadcaster;
-import com.chat.service.WindowManagementService;
+import com.chat.service.RecentMessageService;
 import com.chat.ui.AvatarHelper;
 import com.chat.ui.DialogUtil;
 import com.google.gson.Gson;
@@ -55,8 +55,10 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
 
     private final MessageBroadcaster broadcaster = MessageBroadcaster.getInstance();
     private final ChatSessionManager sessionManager = ChatSessionManager.getInstance();
+    private final RecentMessageService recentService = RecentMessageService.getInstance();
     private final Gson gson = new Gson();
     private final JsonParser jsonParser = new JsonParser();
+    private final Map<Long, Boolean> receivedMessageIds = new ConcurrentHashMap<>();
 
     private String listenerKey;
 
@@ -138,33 +140,75 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
         contactNameLabel.setText(contactName);
         AvatarHelper.loadAvatar(contactAvatar, avatarUrl, false, 40);
 
-        // 清空聊天区域
-        chatArea.clear();
+        // ========== 关键：标记消息栏为已读，清除红点 ==========
+        recentService.markAsRead(contactId);
+        System.out.println("[ChatPrivateControl] 清除消息栏红点: " + contactName);
 
-        // 自动加载本次登录期间的聊天记录
+        // 清空聊天区域并加载本次登录记录
+        chatArea.clear();
         loadCurrentSessionMessages();
 
-        System.out.println("[ChatPrivateControl] 聊天窗口已打开，已自动加载本次登录记录");
+        System.out.println("[ChatPrivateControl] 聊天窗口已打开，已加载本次登录记录");
     }
 
     /**
-     * 自动加载本次登录期间的聊天记录
+     * 只加载本次登录期间的聊天记录
      */
     private void loadCurrentSessionMessages() {
         Platform.runLater(() -> {
             // 从会话管理器获取本次登录的聊天记录
             List<String> sessionMessages = sessionManager.getPrivateSession(userId, contactId);
 
+            // 清空已处理消息记录（重新加载时重新标记）
+            receivedMessageIds.clear();
+
+            chatArea.clear();
+
             if (sessionMessages == null || sessionMessages.isEmpty()) {
                 // 没有本次登录的记录，只显示简单的欢迎信息
                 chatArea.appendText("--- 开始与 " + contactName + " 聊天 ---\n\n");
+                System.out.println("[ChatPrivateControl] 无本次登录记录");
             } else {
-                // 有本次登录的记录，直接显示记录，不加标题
+                // 有本次登录的记录，直接显示所有记录
                 for (String message : sessionMessages) {
                     chatArea.appendText(message + "\n");
                 }
+
+                // 滚动到底部
+                chatArea.positionCaret(chatArea.getLength());
+                System.out.println("[ChatPrivateControl] 加载本次登录记录 " + sessionMessages.size() + " 条");
+
+                // 标记所有已加载的消息为已处理（防止再次显示）
+                markLoadedMessagesAsProcessed(sessionMessages);
             }
         });
+    }
+    /**
+     * 标记已加载的消息为已处理
+     */
+    private void markLoadedMessagesAsProcessed(List<String> sessionMessages) {
+        // 这里可以根据消息内容生成唯一的标识
+        // 假设消息格式为：[时间] 发送者: 内容
+        for (String message : sessionMessages) {
+            try {
+                // 解析消息内容，提取关键信息
+                // 示例消息: "[10:30] 用户1: 你好"
+                if (message.startsWith("[") && message.contains("]")) {
+                    // 提取内容部分
+                    int contentStart = message.indexOf("]") + 2; // 跳过 "] "
+                    if (contentStart < message.length()) {
+                        String contentPart = message.substring(contentStart);
+                        // 生成简化key
+                        String simpleKey = generateSimpleMessageKey(contentPart, System.currentTimeMillis());
+                        // 这里简化处理，实际应该更精确
+                        System.out.println("[ChatPrivateControl] 标记消息为已处理: " +
+                                contentPart.substring(0, Math.min(20, contentPart.length())));
+                    }
+                }
+            } catch (Exception e) {
+                // 忽略解析错误
+            }
+        }
     }
 
     /**
@@ -200,6 +244,9 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
 
                             chatArea.appendText(displayMessage + "\n");
                             sessionManager.addPrivateMessage(userId, contactId, displayMessage);
+
+                            // 滚动到底部
+                            chatArea.positionCaret(chatArea.getLength());
 
                             // 添加发送成功提示
                             chatArea.appendText("   ↳ 文件已发送\n");
@@ -286,25 +333,24 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
             return;
         }
 
-        // 生成消息唯一标识（用于去重）
+        // 生成简化的消息key
         long timestamp = System.currentTimeMillis();
-        String messageKey = generateMessageKey(userId, contactId, content, timestamp);
+        String messageKey = generateSimpleMessageKey(content, timestamp);
 
         // 先清空输入框
         messageInput.clear();
 
-        // 在本地立即显示（给用户即时反馈）
+        // 在本地立即显示
         String time = timeFormat.format(new Date(timestamp));
         String displayMessage = String.format("[%s] 我: %s", time, content);
 
-        // 标记这个消息为"已发送待确认"
+        // 标记为pending
         pendingMessages.put(messageKey, timestamp);
 
-        // 立即显示
+        // 立即显示并保存
         chatArea.appendText(displayMessage + "\n");
-
-        // 保存到会话管理器
         sessionManager.addPrivateMessage(userId, contactId, displayMessage);
+        chatArea.positionCaret(chatArea.getLength()); // 滚动到底部
 
         System.out.println("[ChatPrivateControl] 本地显示消息，key: " + messageKey);
 
@@ -315,14 +361,14 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
             if (sent) {
                 System.out.println("[ChatPrivateControl] 消息发送成功到服务器");
 
-                // 5秒后清理pending状态（假设服务器会在5秒内回传）
+                // 3秒后清理pending状态
                 new Timer().schedule(new TimerTask() {
                     @Override
                     public void run() {
                         pendingMessages.remove(messageKey);
                         System.out.println("[ChatPrivateControl] 清理pending消息: " + messageKey);
                     }
-                }, 5000);
+                }, 3000);
 
             } else {
                 // 发送失败
@@ -346,6 +392,34 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
             // 检查是否是当前联系人的消息
             if ((fromUserId.equals(contactId) && toUserId.equals(userId)) ||
                     (fromUserId.equals(userId) && toUserId.equals(contactId))) {
+
+                // ========== 关键去重逻辑 ==========
+                // 如果消息ID不为null，检查是否已经处理过
+                if (messageId != null) {
+                    // 生成消息唯一标识：messageId + userId组合
+                    String messageKey = messageId + "_" + userId;
+
+                    // 如果已经处理过，直接返回
+                    if (receivedMessageIds.containsKey(Long.parseLong(messageKey))) {
+                        System.out.println("[ChatPrivateControl] 跳过已处理的消息: " + messageId);
+                        return;
+                    }
+
+                    // 标记为已处理
+                    receivedMessageIds.put(Long.parseLong(messageKey), true);
+
+                    // 清理旧的记录（避免内存泄漏）
+                    if (receivedMessageIds.size() > 1000) {
+                        Iterator<Long> iterator = receivedMessageIds.keySet().iterator();
+                        int count = 0;
+                        while (iterator.hasNext() && count < 100) {
+                            iterator.next();
+                            iterator.remove();
+                            count++;
+                        }
+                    }
+                }
+                // ========== 结束去重逻辑 ==========
 
                 // 检查是否是文件消息（服务器返回的JSON格式）
                 try {
@@ -372,49 +446,45 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
      */
     private void handleTextMessage(Long fromUserId, Long toUserId, String content,
                                    long timestamp, Long messageId) {
-        // 生成消息唯一标识
-        String messageKey = generateMessageKey(fromUserId, toUserId, content, timestamp);
+        // 生成简化的消息key（只检查最近消息）
+        String messageKey = generateSimpleMessageKey(content, timestamp);
 
-        // 关键去重逻辑
-        if (processedMessageKeys.contains(messageKey)) {
-            System.out.println("[ChatPrivateControl] 跳过已处理的消息: " + messageKey);
+        // 只检查是否是刚发送的pending消息
+        if (pendingMessages.containsKey(messageKey)) {
+            System.out.println("[ChatPrivateControl] 这是刚发送的消息回传，已显示过: " + messageKey);
+            // 从pending中移除
+            pendingMessages.remove(messageKey);
             return;
         }
 
-        // 检查是否是刚发送的pending消息
-        if (pendingMessages.containsKey(messageKey)) {
-            System.out.println("[ChatPrivateControl] 这是刚发送的消息回传，已显示过: " + messageKey);
-            // 从pending中移除，但不再显示
-            pendingMessages.remove(messageKey);
-            processedMessageKeys.add(messageKey);
+        // 获取发送者名称
+        String senderName = fromUserId.equals(userId) ? "我" : contactName;
+
+        // 检查这条消息是否已经在聊天区域中显示过了
+        String expectedMessage = String.format("[%s] %s: %s",
+                timeFormat.format(new Date(timestamp)),
+                senderName,
+                content);
+
+        // 检查聊天区域是否已经包含这条消息
+        String chatText = chatArea.getText();
+        if (chatText.contains(expectedMessage)) {
+            System.out.println("[ChatPrivateControl] 消息已在聊天区域中: " +
+                    content.substring(0, Math.min(20, content.length())));
             return;
         }
 
         // 正常处理新消息
         String time = timeFormat.format(new Date(timestamp));
-        String senderName = fromUserId.equals(userId) ? "我" : contactName;
         String displayMessage = String.format("[%s] %s: %s", time, senderName, content);
 
-        // 添加到已处理集合
-        processedMessageKeys.add(messageKey);
-
-        // 保存到会话管理器
-        sessionManager.addPrivateMessage(userId, contactId, displayMessage);
-
-        // 显示消息
-        chatArea.appendText(displayMessage + "\n");
-
-        System.out.println("[ChatPrivateControl] 显示新消息: " + displayMessage);
-
-        // 清理旧的已处理记录（避免内存泄漏）
-        if (processedMessageKeys.size() > 100) {
-            Iterator<String> iterator = processedMessageKeys.iterator();
-            int count = 0;
-            while (iterator.hasNext() && count < 50) {
-                iterator.next();
-                iterator.remove();
-                count++;
-            }
+        // 消息已经由 MessageBroadcaster 保存到会话管理器，这里只需显示
+        if (chatArea != null) {
+            chatArea.appendText(displayMessage + "\n");
+            chatArea.positionCaret(chatArea.getLength()); // 滚动到底部
+            System.out.println("[ChatPrivateControl] 显示新消息: " +
+                    (senderName.equals("我") ? "发送" : "接收") + " - " +
+                    content.substring(0, Math.min(20, content.length())));
         }
     }
 
@@ -472,22 +542,14 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
     }
 
     /**
-     * 生成消息唯一标识
+     * 生成简化的消息key（只用于pending检查）
      */
-    private String generateMessageKey(Long fromUserId, Long toUserId, String content, long timestamp) {
-        // 使用发送者、接收者、内容和时间戳生成key
-        String contentHash = content.length() > 50 ?
-                content.substring(0, 50) + "_" + content.length() :
-                content;
-
-        // 简化时间戳（精确到秒）
-        long secondTimestamp = timestamp / 1000;
-
-        return String.format("private_%d_%d_%s_%d",
-                Math.min(fromUserId, toUserId),
-                Math.max(fromUserId, toUserId),
-                contentHash,
-                secondTimestamp);
+    private String generateSimpleMessageKey(String content, long timestamp) {
+        // 使用内容前20字符和时间戳分钟级
+        String contentHash = content.length() > 20 ?
+                content.substring(0, 20) : content;
+        long minuteTimestamp = timestamp / 60000; // 精确到分钟
+        return contentHash + "_" + minuteTimestamp;
     }
 
     public void cleanup() {

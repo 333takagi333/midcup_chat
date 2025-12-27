@@ -5,7 +5,7 @@ import com.chat.service.ChatService;
 import com.chat.service.ChatSessionManager;
 import com.chat.service.FileService;
 import com.chat.service.MessageBroadcaster;
-import com.chat.service.WindowManagementService;
+import com.chat.service.RecentMessageService;
 import com.chat.ui.AvatarHelper;
 import com.chat.ui.DialogUtil;
 import com.google.gson.Gson;
@@ -19,14 +19,13 @@ import javafx.scene.control.*;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
-import javafx.stage.FileChooser;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.Window;
 
 import java.io.File;
 import java.net.URL;
-import java.text.SimpleDateFormat;
+import java.text.SimpleDateFormat;  // 添加import
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -56,6 +55,7 @@ public class ChatGroupControl implements Initializable, MessageBroadcaster.Group
 
     private final MessageBroadcaster broadcaster = MessageBroadcaster.getInstance();
     private final ChatSessionManager sessionManager = ChatSessionManager.getInstance();
+    private final RecentMessageService recentService = RecentMessageService.getInstance();
     private final Gson gson = new Gson();
     private final JsonParser jsonParser = new JsonParser();
 
@@ -133,13 +133,40 @@ public class ChatGroupControl implements Initializable, MessageBroadcaster.Group
         groupNameLabel.setText(groupName);
         AvatarHelper.loadAvatar(groupAvatar, avatarUrl, true, 50);
 
-        // 清空聊天区域
-        chatArea.clear();
+        // ========== 关键：标记消息栏为已读，清除红点 ==========
+        recentService.markAsRead(groupId.toString());
+        System.out.println("[ChatGroupControl] 清除群聊消息栏红点: " + groupName);
 
-        // 自动加载本次登录期间的聊天记录
+        // 清空聊天区域并加载本次登录记录
+        chatArea.clear();
         loadCurrentSessionMessages();
 
-        System.out.println("[ChatGroupControl] 群聊窗口已打开，已自动加载本次登录记录");
+        System.out.println("[ChatGroupControl] 群聊窗口已打开，已加载本次登录记录");
+    }
+
+    /**
+     * 只加载本次登录期间的群聊记录
+     */
+    private void loadCurrentSessionMessages() {
+        Platform.runLater(() -> {
+            // 从会话管理器获取本次登录的聊天记录
+            List<String> sessionMessages = sessionManager.getGroupSession(groupId);
+
+            if (sessionMessages == null || sessionMessages.isEmpty()) {
+                // 没有本次登录的记录，显示简单欢迎信息
+                chatArea.appendText("--- 欢迎来到 " + groupName + " ---\n\n");
+                System.out.println("[ChatGroupControl] 无本次登录记录");
+            } else {
+                // 有本次登录的记录，直接显示所有记录
+                for (String message : sessionMessages) {
+                    chatArea.appendText(message + "\n");
+                }
+
+                // 滚动到底部
+                chatArea.positionCaret(chatArea.getLength());
+                System.out.println("[ChatGroupControl] 加载本次登录记录 " + sessionMessages.size() + " 条");
+            }
+        });
     }
 
     /**
@@ -210,6 +237,9 @@ public class ChatGroupControl implements Initializable, MessageBroadcaster.Group
                             chatArea.appendText(displayMessage + "\n");
                             sessionManager.addGroupMessage(groupId, displayMessage);
 
+                            // 滚动到底部
+                            chatArea.positionCaret(chatArea.getLength());
+
                             // 添加共享提示
                             chatArea.appendText("   ↳ 文件已共享到群聊\n");
                         });
@@ -253,26 +283,6 @@ public class ChatGroupControl implements Initializable, MessageBroadcaster.Group
         }
     }
 
-    /**
-     * 自动加载本次登录期间的群聊记录
-     */
-    private void loadCurrentSessionMessages() {
-        Platform.runLater(() -> {
-            // 从会话管理器获取本次登录的聊天记录
-            List<String> sessionMessages = sessionManager.getGroupSession(groupId);
-
-            if (sessionMessages == null || sessionMessages.isEmpty()) {
-                // 没有本次登录的记录，只显示简单的欢迎信息
-                chatArea.appendText("--- 欢迎来到 " + groupName + " ---\n\n");
-            } else {
-                // 有本次登录的记录，直接显示记录，不加标题
-                for (String message : sessionMessages) {
-                    chatArea.appendText(message + "\n");
-                }
-            }
-        });
-    }
-
     @FXML
     private void sendMessage() {
         String content = messageInput.getText().trim();
@@ -281,9 +291,9 @@ public class ChatGroupControl implements Initializable, MessageBroadcaster.Group
             return;
         }
 
-        // 生成消息唯一标识
+        // 生成简化的消息key
         long timestamp = System.currentTimeMillis();
-        String messageKey = generateMessageKey(groupId, userId, content, timestamp);
+        String messageKey = generateSimpleMessageKey(content, timestamp);
 
         // 先清空输入框
         messageInput.clear();
@@ -295,11 +305,10 @@ public class ChatGroupControl implements Initializable, MessageBroadcaster.Group
         // 标记为pending
         pendingMessages.put(messageKey, timestamp);
 
-        // 立即显示
+        // 立即显示并保存
         chatArea.appendText(displayMessage + "\n");
-
-        // 保存到会话管理器
         sessionManager.addGroupMessage(groupId, displayMessage);
+        chatArea.positionCaret(chatArea.getLength()); // 滚动到底部
 
         System.out.println("[ChatGroupControl] 本地显示群聊消息，key: " + messageKey);
 
@@ -310,14 +319,14 @@ public class ChatGroupControl implements Initializable, MessageBroadcaster.Group
             if (sent) {
                 System.out.println("[ChatGroupControl] 群聊消息发送成功到服务器");
 
-                // 5秒后清理pending状态
+                // 3秒后清理pending状态
                 new Timer().schedule(new TimerTask() {
                     @Override
                     public void run() {
                         pendingMessages.remove(messageKey);
                         System.out.println("[ChatGroupControl] 清理pending消息: " + messageKey);
                     }
-                }, 5000);
+                }, 3000);
 
             } else {
                 Platform.runLater(() -> {
@@ -366,20 +375,13 @@ public class ChatGroupControl implements Initializable, MessageBroadcaster.Group
      */
     private void handleGroupTextMessage(Long groupId, Long fromUserId, String content,
                                         long timestamp, Long messageId) {
-        // 生成消息唯一标识
-        String messageKey = generateMessageKey(groupId, fromUserId, content, timestamp);
-
-        // 去重检查
-        if (processedMessageKeys.contains(messageKey)) {
-            System.out.println("[ChatGroupControl] 跳过已处理的群聊消息: " + messageKey);
-            return;
-        }
+        // 生成简化的消息key
+        String messageKey = generateSimpleMessageKey(content, timestamp);
 
         // 检查是否是刚发送的pending消息
         if (pendingMessages.containsKey(messageKey)) {
             System.out.println("[ChatGroupControl] 这是刚发送的群聊消息回传: " + messageKey);
             pendingMessages.remove(messageKey);
-            processedMessageKeys.add(messageKey);
             return;
         }
 
@@ -388,27 +390,15 @@ public class ChatGroupControl implements Initializable, MessageBroadcaster.Group
         String senderName = fromUserId.equals(userId) ? "我" : "用户" + fromUserId;
         String displayMessage = "[" + time + "] " + senderName + ": " + content;
 
-        // 添加到已处理集合
-        processedMessageKeys.add(messageKey);
-
-        // 保存到会话管理器
-        sessionManager.addGroupMessage(groupId, displayMessage);
-
-        // 显示消息
-        chatArea.appendText(displayMessage + "\n");
-
-        System.out.println("[ChatGroupControl] 显示新群聊消息: " + displayMessage);
-
-        // 清理旧的记录
-        if (processedMessageKeys.size() > 100) {
-            Iterator<String> iterator = processedMessageKeys.iterator();
-            int count = 0;
-            while (iterator.hasNext() && count < 50) {
-                iterator.next();
-                iterator.remove();
-                count++;
-            }
+        // 消息已经由 MessageBroadcaster 保存到会话管理器，这里只需显示
+        if (chatArea != null) {
+            chatArea.appendText(displayMessage + "\n");
+            chatArea.positionCaret(chatArea.getLength()); // 滚动到底部
         }
+
+        System.out.println("[ChatGroupControl] 显示新群聊消息: " +
+                (senderName.equals("我") ? "发送" : "接收") + " - " +
+                content.substring(0, Math.min(20, content.length())));
     }
 
     /**
@@ -467,27 +457,21 @@ public class ChatGroupControl implements Initializable, MessageBroadcaster.Group
     }
 
     /**
-     * 生成群聊消息唯一标识
+     * 生成简化的消息key（只用于pending检查）
      */
-    private String generateMessageKey(Long groupId, Long fromUserId, String content, long timestamp) {
-        // 对内容取前50个字符
-        String contentHash = content.length() > 50 ?
-                content.substring(0, 50) + "_" + content.length() :
-                content;
-
-        // 简化时间戳（精确到秒）
-        long secondTimestamp = timestamp / 1000;
-
-        return String.format("group_%d_%d_%s_%d",
-                groupId,
-                fromUserId,
-                contentHash,
-                secondTimestamp);
+    private String generateSimpleMessageKey(String content, long timestamp) {
+        // 使用内容前20字符和时间戳分钟级
+        String contentHash = content.length() > 20 ?
+                content.substring(0, 20) : content;
+        long minuteTimestamp = timestamp / 60000; // 精确到分钟
+        return contentHash + "_" + minuteTimestamp;
     }
 
     public void cleanup() {
         // 移除消息监听器
-        broadcaster.unregisterGroupListener(groupId.toString(), this);
+        if (groupId != null) {
+            broadcaster.unregisterGroupListener(groupId.toString(), this);
+        }
 
         System.out.println("[ChatGroupControl] 清理完成，会话记录已保存");
     }
