@@ -1,17 +1,22 @@
 package com.chat.control;
 
+import com.chat.model.ChatMessageModel;
 import com.chat.network.SocketClient;
 import com.chat.service.ChatService;
 import com.chat.service.ChatSessionManager;
 import com.chat.service.FileService;
 import com.chat.service.MessageBroadcaster;
 import com.chat.service.RecentMessageService;
+import com.chat.service.FileUploadService;
 import com.chat.ui.AvatarHelper;
 import com.chat.ui.DialogUtil;
+import com.chat.ui.ChatMessageCellFactory;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
@@ -22,6 +27,7 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.Window;
+import javafx.util.Callback;
 
 import java.io.File;
 import java.net.URL;
@@ -36,7 +42,7 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
 
     @FXML private Label contactNameLabel;
     @FXML private ImageView contactAvatar;
-    @FXML private TextArea chatArea;
+    @FXML private ListView<com.chat.model.ChatMessageModel> messageListView;
     @FXML private TextField messageInput;
     @FXML private HBox historyButtonBox;
     @FXML private Button profileButton;
@@ -44,6 +50,7 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
     @FXML private Button sendButton;
 
     private Button loadHistoryButton;
+    private ObservableList<com.chat.model.ChatMessageModel> messageList;
 
     private Long contactId;
     private String contactName;
@@ -59,6 +66,7 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
     private final Gson gson = new Gson();
     private final JsonParser jsonParser = new JsonParser();
     private final Map<Long, Boolean> receivedMessageIds = new ConcurrentHashMap<>();
+    private final Map<String, com.chat.model.ChatMessageModel> messageCache = new ConcurrentHashMap<>();
 
     private String listenerKey;
 
@@ -69,6 +77,10 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
+        // 初始化消息列表
+        messageList = FXCollections.observableArrayList();
+        messageListView.setItems(messageList);
+
         setupChatUI();
         createHistoryButton();
         setupProfileButton();
@@ -78,20 +90,41 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
 
     private void setupChatUI() {
         messageInput.setOnAction(event -> sendMessage());
-        chatArea.setWrapText(true);
+
+        // 设置ListView的单元格工厂（稍后在setChatInfo中初始化）
+        messageListView.setCellFactory(param -> {
+            if (socketClient != null && chatService != null && contactId != null && userId != null) {
+                return new ChatMessageCellFactory(socketClient, userId,
+                        messageListView.getScene().getWindow(), chatService, "private", contactId);
+            }
+            return new ListCell<>() {
+                @Override
+                protected void updateItem(com.chat.model.ChatMessageModel item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || item == null) {
+                        setText(null);
+                        setGraphic(null);
+                    } else {
+                        setText(item.toString());
+                        setGraphic(null);
+                    }
+                }
+            };
+        });
     }
 
     private void createHistoryButton() {
         loadHistoryButton = new Button("📜 历史记录");
-        loadHistoryButton.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-padding: 5 10;");
+        loadHistoryButton.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-padding: 8 16; -fx-background-radius: 6;");
         loadHistoryButton.setOnAction(event -> openHistoryWindow());
+        loadHistoryButton.setTooltip(new Tooltip("查看历史聊天记录"));
         historyButtonBox.getChildren().add(loadHistoryButton);
     }
 
     private void setupProfileButton() {
         if (profileButton != null) {
             profileButton.setText("👤 资料");
-            profileButton.setStyle("-fx-background-color: #9b59b6; -fx-text-fill: white; -fx-padding: 5 10;");
+            profileButton.setStyle("-fx-background-color: #9b59b6; -fx-text-fill: white; -fx-padding: 8 16; -fx-background-radius: 6;");
             profileButton.setOnAction(event -> showFriendProfile());
             profileButton.setTooltip(new Tooltip("查看好友详情"));
         }
@@ -100,7 +133,7 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
     private void setupFileUploadButton() {
         if (fileUploadButton != null) {
             fileUploadButton.setText("📎");
-            fileUploadButton.setStyle("-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-padding: 5 10;");
+            fileUploadButton.setStyle("-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-padding: 8 16; -fx-background-radius: 6;");
             fileUploadButton.setTooltip(new Tooltip("上传文件 (最大50MB)"));
         }
     }
@@ -108,7 +141,7 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
     private void setupSendButton() {
         if (sendButton != null) {
             sendButton.setText("发送");
-            sendButton.setStyle("-fx-background-color: #3b82f6; -fx-text-fill: white; -fx-padding: 12 24;");
+            sendButton.setStyle("-fx-background-color: #3b82f6; -fx-text-fill: white; -fx-padding: 8 20; -fx-background-radius: 6;");
             sendButton.setOnAction(event -> sendMessage());
         }
     }
@@ -129,6 +162,11 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
             // 注册消息监听器
             broadcaster.registerPrivateListener(listenerKey, this);
 
+            // 设置单元格工厂（需要所有信息都准备好）
+            messageListView.setCellFactory(param ->
+                    new ChatMessageCellFactory(socketClient, this.userId,
+                            messageListView.getScene().getWindow(), chatService, "private", this.contactId));
+
             System.out.println("[ChatPrivateControl] 设置聊天信息: " + contactName +
                     ", 监听器key: " + listenerKey);
 
@@ -145,7 +183,8 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
         System.out.println("[ChatPrivateControl] 清除消息栏红点: " + contactName);
 
         // 清空聊天区域并加载本次登录记录
-        chatArea.clear();
+        messageList.clear();
+        messageCache.clear();
         loadCurrentSessionMessages();
 
         System.out.println("[ChatPrivateControl] 聊天窗口已打开，已加载本次登录记录");
@@ -162,53 +201,131 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
             // 清空已处理消息记录（重新加载时重新标记）
             receivedMessageIds.clear();
 
-            chatArea.clear();
+            messageList.clear();
+            messageCache.clear();
 
             if (sessionMessages == null || sessionMessages.isEmpty()) {
                 // 没有本次登录的记录，只显示简单的欢迎信息
-                chatArea.appendText("--- 开始与 " + contactName + " 聊天 ---\n\n");
+                com.chat.model.ChatMessageModel welcomeMessage = new com.chat.model.ChatMessageModel(
+                        "welcome_" + System.currentTimeMillis(),
+                        userId,
+                        "系统",
+                        "--- 开始与 " + contactName + " 聊天 ---",
+                        System.currentTimeMillis(),
+                        false
+                );
+                messageList.add(welcomeMessage);
                 System.out.println("[ChatPrivateControl] 无本次登录记录");
             } else {
-                // 有本次登录的记录，直接显示所有记录
+                // 有本次登录的记录，转换并显示
                 for (String message : sessionMessages) {
-                    chatArea.appendText(message + "\n");
+                    // 解析消息字符串为ChatMessageModel
+                    com.chat.model.ChatMessageModel messageModel = parseMessageString(message);
+                    if (messageModel != null) {
+                        messageList.add(messageModel);
+                        messageCache.put(messageModel.getMessageId(), messageModel);
+                    }
                 }
 
                 // 滚动到底部
-                chatArea.positionCaret(chatArea.getLength());
+                messageListView.scrollTo(messageList.size() - 1);
                 System.out.println("[ChatPrivateControl] 加载本次登录记录 " + sessionMessages.size() + " 条");
-
-                // 标记所有已加载的消息为已处理（防止再次显示）
-                markLoadedMessagesAsProcessed(sessionMessages);
             }
         });
     }
+
     /**
-     * 标记已加载的消息为已处理
+     * 解析消息字符串为ChatMessageModel
      */
-    private void markLoadedMessagesAsProcessed(List<String> sessionMessages) {
-        // 这里可以根据消息内容生成唯一的标识
-        // 假设消息格式为：[时间] 发送者: 内容
-        for (String message : sessionMessages) {
-            try {
-                // 解析消息内容，提取关键信息
-                // 示例消息: "[10:30] 用户1: 你好"
-                if (message.startsWith("[") && message.contains("]")) {
-                    // 提取内容部分
-                    int contentStart = message.indexOf("]") + 2; // 跳过 "] "
-                    if (contentStart < message.length()) {
-                        String contentPart = message.substring(contentStart);
-                        // 生成简化key
-                        String simpleKey = generateSimpleMessageKey(contentPart, System.currentTimeMillis());
-                        // 这里简化处理，实际应该更精确
-                        System.out.println("[ChatPrivateControl] 标记消息为已处理: " +
-                                contentPart.substring(0, Math.min(20, contentPart.length())));
+    private com.chat.model.ChatMessageModel parseMessageString(String messageStr) {
+        try {
+            // 示例消息格式: "[18:10] 我: 你好" 或 "[18:10] 我: [文件] 2.txt (1.5 KB)"
+            if (messageStr.startsWith("[") && messageStr.contains("]")) {
+                int timeEnd = messageStr.indexOf("]");
+                String timePart = messageStr.substring(1, timeEnd);
+
+                int colonIndex = messageStr.indexOf(":", timeEnd);
+                if (colonIndex == -1) return null;
+
+                String sender = messageStr.substring(timeEnd + 2, colonIndex).trim();
+                String content = messageStr.substring(colonIndex + 2).trim();
+
+                boolean isMyMessage = "我".equals(sender);
+                Long senderId = isMyMessage ? userId : contactId;
+                String senderName = isMyMessage ? "我" : contactName;
+
+                // 生成消息ID
+                String messageId = "msg_" + System.currentTimeMillis() + "_" + content.hashCode() + "_" + UUID.randomUUID().toString().substring(0, 8);
+
+                // 检查是否是文件消息
+                if (content.startsWith("[文件]")) {
+                    // 解析文件消息
+                    // 格式: [文件] 文件名 (大小)
+                    String fileInfo = content.substring(4).trim();
+                    int parenIndex = fileInfo.lastIndexOf("(");
+                    if (parenIndex != -1) {
+                        String fileName = fileInfo.substring(0, parenIndex).trim();
+                        String sizeStr = fileInfo.substring(parenIndex + 1, fileInfo.length() - 1).trim();
+
+                        // 解析文件大小
+                        long fileSize = parseFileSize(sizeStr);
+                        String fileType = FileService.getFileTypeCategory(new File(fileName));
+
+                        // 生成文件ID
+                        String fileId = "file_" + senderId + "_" +
+                                System.currentTimeMillis() + "_" + fileName.hashCode();
+
+                        return new com.chat.model.ChatMessageModel(
+                                messageId,
+                                senderId,
+                                senderName,
+                                fileName,
+                                fileSize,
+                                fileType,
+                                fileId,
+                                System.currentTimeMillis(),
+                                isMyMessage
+                        );
                     }
                 }
-            } catch (Exception e) {
-                // 忽略解析错误
+
+                // 文本消息
+                return new com.chat.model.ChatMessageModel(
+                        messageId,
+                        senderId,
+                        senderName,
+                        content,
+                        System.currentTimeMillis(),
+                        isMyMessage
+                );
             }
+        } catch (Exception e) {
+            System.err.println("[ChatPrivateControl] 解析消息失败: " + messageStr + ", 错误: " + e.getMessage());
         }
+        return null;
+    }
+
+    /**
+     * 解析文件大小字符串
+     */
+    private long parseFileSize(String sizeStr) {
+        try {
+            if (sizeStr.endsWith(" B")) {
+                return Long.parseLong(sizeStr.replace(" B", "").trim());
+            } else if (sizeStr.endsWith(" KB")) {
+                double kb = Double.parseDouble(sizeStr.replace(" KB", "").trim());
+                return (long)(kb * 1024);
+            } else if (sizeStr.endsWith(" MB")) {
+                double mb = Double.parseDouble(sizeStr.replace(" MB", "").trim());
+                return (long)(mb * 1024 * 1024);
+            } else if (sizeStr.endsWith(" GB")) {
+                double gb = Double.parseDouble(sizeStr.replace(" GB", "").trim());
+                return (long)(gb * 1024 * 1024 * 1024);
+            }
+        } catch (Exception e) {
+            System.err.println("解析文件大小失败: " + sizeStr);
+        }
+        return 0;
     }
 
     /**
@@ -218,42 +335,55 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
     private void handleFileUpload() {
         System.out.println("[ChatPrivateControl] 处理文件上传");
 
-        Window window = chatArea.getScene().getWindow();
+        Window window = messageListView.getScene().getWindow();
 
-        FileService.chooseAndUploadFile(window, file -> {
-            System.out.println("[ChatPrivateControl] 选择了文件: " + file.getName());
-
-            // 在聊天区域显示上传中消息
-            String time = timeFormat.format(new Date());
-            chatArea.appendText("[" + time + "] 正在上传文件: " + file.getName() + "\n");
-
-            // 调用服务层处理文件上传
-            chatService.uploadPrivateFile(
-                    window,
-                    socketClient,
-                    userId,
-                    contactId,
-                    contactName,
-                    file,
-                    () -> {
-                        // 上传成功后的回调
+        FileUploadService.uploadFile(
+                window,
+                socketClient,
+                userId,
+                contactId,
+                null, // groupId为null，因为是私聊
+                "private",
+                new FileUploadService.FileUploadCallback() {
+                    @Override
+                    public void onUploadSuccess(FileUploadService.FileUploadResult result) {
                         Platform.runLater(() -> {
-                            String time2 = timeFormat.format(new Date());
+                            // 在聊天区域显示文件消息
+                            String time = timeFormat.format(new Date());
                             String displayMessage = String.format("[%s] 我: [文件] %s (%s)",
-                                    time2, file.getName(), chatService.formatFileSize(file.length()));
+                                    time, result.getFileName(), result.getFormattedFileSize());
 
-                            chatArea.appendText(displayMessage + "\n");
+                            // 创建文件消息模型
+                            com.chat.model.ChatMessageModel fileMessage = new com.chat.model.ChatMessageModel(
+                                    "file_" + System.currentTimeMillis() + "_" + result.getFileName().hashCode(),
+                                    userId,
+                                    "我",
+                                    result.getFileName(),
+                                    result.getFileSize(),
+                                    result.getFileType(),
+                                    result.getFileId(),
+                                    System.currentTimeMillis(),
+                                    true
+                            );
+
+                            // 添加到消息列表
+                            messageList.add(fileMessage);
+                            messageCache.put(fileMessage.getMessageId(), fileMessage);
+                            messageListView.scrollTo(messageList.size() - 1);
+
+                            // 保存到会话管理器
                             sessionManager.addPrivateMessage(userId, contactId, displayMessage);
-
-                            // 滚动到底部
-                            chatArea.positionCaret(chatArea.getLength());
-
-                            // 添加发送成功提示
-                            chatArea.appendText("   ↳ 文件已发送\n");
                         });
                     }
-            );
-        });
+
+                    @Override
+                    public void onUploadFailure(String errorMessage) {
+                        Platform.runLater(() -> {
+                            DialogUtil.showError(window, "上传失败");
+                        });
+                    }
+                }
+        );
     }
 
     /**
@@ -278,7 +408,7 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
             // 创建新窗口显示历史记录
             Stage historyStage = new Stage();
             historyStage.initModality(Modality.WINDOW_MODAL);
-            historyStage.initOwner(chatArea.getScene().getWindow());
+            historyStage.initOwner(messageListView.getScene().getWindow());
             historyStage.setTitle(contactName + " - 历史记录");
             historyStage.setScene(new javafx.scene.Scene(historyRoot, 600, 700));
             historyStage.show();
@@ -287,7 +417,7 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
 
         } catch (Exception e) {
             System.err.println("[ChatPrivateControl] 打开历史记录窗口失败: " + e.getMessage());
-            DialogUtil.showError(chatArea.getScene().getWindow(), "打开历史记录窗口失败: " + e.getMessage());
+            DialogUtil.showError(messageListView.getScene().getWindow(), "打开历史记录窗口失败: " + e.getMessage());
         }
     }
 
@@ -314,14 +444,14 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
             // 创建新窗口显示好友资料
             Stage profileStage = new Stage();
             profileStage.initModality(Modality.WINDOW_MODAL);
-            profileStage.initOwner(chatArea.getScene().getWindow());
+            profileStage.initOwner(messageListView.getScene().getWindow());
             profileStage.setTitle(contactName + " 的资料");
             profileStage.setScene(new javafx.scene.Scene(friendProfileRoot, 400, 500));
             profileStage.show();
 
         } catch (Exception e) {
             System.err.println("[ChatPrivateControl] 打开好友资料失败: " + e.getMessage());
-            DialogUtil.showError(chatArea.getScene().getWindow(), "打开好友资料失败");
+            DialogUtil.showError(messageListView.getScene().getWindow(), "打开好友资料失败");
         }
     }
 
@@ -344,19 +474,44 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
         String time = timeFormat.format(new Date(timestamp));
         String displayMessage = String.format("[%s] 我: %s", time, content);
 
+        // 创建消息模型
+        final com.chat.model.ChatMessageModel messageModel = new com.chat.model.ChatMessageModel(
+                "temp_" + messageKey,
+                userId,
+                "我",
+                content,
+                timestamp,
+                true
+        );
+
         // 标记为pending
         pendingMessages.put(messageKey, timestamp);
 
         // 立即显示并保存
-        chatArea.appendText(displayMessage + "\n");
+        Platform.runLater(() -> {
+            messageList.add(messageModel);
+            messageCache.put(messageModel.getMessageId(), messageModel);
+            messageListView.scrollTo(messageList.size() - 1);
+        });
+
         sessionManager.addPrivateMessage(userId, contactId, displayMessage);
-        chatArea.positionCaret(chatArea.getLength()); // 滚动到底部
 
         System.out.println("[ChatPrivateControl] 本地显示消息，key: " + messageKey);
 
-        // 异步发送到服务器
+        // 异步发送到服务器 - 使用final变量
+        final String finalContent = content;
+        final String finalMessageKey = messageKey;
+        final com.chat.model.ChatMessageModel finalFailedMessageModel = new com.chat.model.ChatMessageModel(
+                "failed_" + messageKey,
+                userId,
+                "我",
+                "[发送失败] " + content,
+                System.currentTimeMillis(),
+                true
+        );
+
         new Thread(() -> {
-            boolean sent = chatService.sendPrivateMessage(socketClient, contactId, userId, content);
+            boolean sent = chatService.sendPrivateMessage(socketClient, contactId, userId, finalContent);
 
             if (sent) {
                 System.out.println("[ChatPrivateControl] 消息发送成功到服务器");
@@ -365,21 +520,22 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
                 new Timer().schedule(new TimerTask() {
                     @Override
                     public void run() {
-                        pendingMessages.remove(messageKey);
-                        System.out.println("[ChatPrivateControl] 清理pending消息: " + messageKey);
+                        pendingMessages.remove(finalMessageKey);
+                        System.out.println("[ChatPrivateControl] 清理pending消息: " + finalMessageKey);
                     }
                 }, 3000);
 
             } else {
                 // 发送失败
                 Platform.runLater(() -> {
-                    DialogUtil.showError(chatArea.getScene().getWindow(), "发送失败，请检查网络连接");
+                    DialogUtil.showError(messageListView.getScene().getWindow(), "发送失败，请检查网络连接");
 
                     // 从pending中移除
-                    pendingMessages.remove(messageKey);
+                    pendingMessages.remove(finalMessageKey);
 
                     // 在消息前添加失败标记
-                    chatArea.appendText("[发送失败] " + displayMessage + "\n");
+                    messageList.add(finalFailedMessageModel);
+                    messageListView.scrollTo(messageList.size() - 1);
                 });
             }
         }).start();
@@ -460,16 +616,12 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
         // 获取发送者名称
         String senderName = fromUserId.equals(userId) ? "我" : contactName;
 
-        // 检查这条消息是否已经在聊天区域中显示过了
-        String expectedMessage = String.format("[%s] %s: %s",
-                timeFormat.format(new Date(timestamp)),
-                senderName,
-                content);
+        // 检查这条消息是否已经在消息列表中
+        String expectedContent = senderName.equals("我") ? content : content;
+        String cacheKey = "msg_" + (messageId != null ? messageId : content.hashCode());
 
-        // 检查聊天区域是否已经包含这条消息
-        String chatText = chatArea.getText();
-        if (chatText.contains(expectedMessage)) {
-            System.out.println("[ChatPrivateControl] 消息已在聊天区域中: " +
+        if (messageCache.containsKey(cacheKey)) {
+            System.out.println("[ChatPrivateControl] 消息已在列表中: " +
                     content.substring(0, Math.min(20, content.length())));
             return;
         }
@@ -478,14 +630,27 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
         String time = timeFormat.format(new Date(timestamp));
         String displayMessage = String.format("[%s] %s: %s", time, senderName, content);
 
-        // 消息已经由 MessageBroadcaster 保存到会话管理器，这里只需显示
-        if (chatArea != null) {
-            chatArea.appendText(displayMessage + "\n");
-            chatArea.positionCaret(chatArea.getLength()); // 滚动到底部
-            System.out.println("[ChatPrivateControl] 显示新消息: " +
-                    (senderName.equals("我") ? "发送" : "接收") + " - " +
-                    content.substring(0, Math.min(20, content.length())));
-        }
+        // 创建消息模型
+        com.chat.model.ChatMessageModel messageModel = new com.chat.model.ChatMessageModel(
+                cacheKey,
+                fromUserId,
+                senderName,
+                content,
+                timestamp,
+                fromUserId.equals(userId)
+        );
+
+        // 添加到消息列表
+        messageList.add(messageModel);
+        messageCache.put(cacheKey, messageModel);
+        messageListView.scrollTo(messageList.size() - 1);
+
+        System.out.println("[ChatPrivateControl] 显示新消息: " +
+                (senderName.equals("我") ? "发送" : "接收") + " - " +
+                content.substring(0, Math.min(20, content.length())));
+
+        // 保存到会话管理器
+        sessionManager.addPrivateMessage(userId, contactId, displayMessage);
     }
 
     /**
@@ -500,44 +665,39 @@ public class ChatPrivateControl implements Initializable, MessageBroadcaster.Pri
             String downloadUrl = fileMessage.get("downloadUrl").getAsString();
             Long senderId = fileMessage.get("senderId").getAsLong();
             Long receiverId = fileMessage.get("receiverId").getAsLong();
+            Long messageId = fileMessage.has("messageId") ? fileMessage.get("messageId").getAsLong() : null;
 
             String time = timeFormat.format(new Date(timestamp));
-            String senderName = senderId.equals(userId) ? "我" : contactName;
 
-            // 创建文件消息
-            String displayMessage = String.format("[%s] %s: [文件] %s (%s)",
-                    time, senderName, fileName, chatService.formatFileSize(fileSize));
+            // 创建文件消息模型
+            boolean isMyMessage = senderId.equals(userId);
+            com.chat.model.ChatMessageModel messageModel = new com.chat.model.ChatMessageModel(
+                    "file_" + (messageId != null ? messageId : System.currentTimeMillis()),
+                    senderId,
+                    isMyMessage ? "我" : contactName,
+                    fileName,
+                    fileSize,
+                    fileType,
+                    fileId,
+                    timestamp,
+                    isMyMessage
+            );
 
-            // 显示文件消息
-            chatArea.appendText(displayMessage + "\n");
-
-            // 添加文件类型提示
-            String typeHint = getFileTypeHint(fileType);
-            if (!typeHint.isEmpty()) {
-                chatArea.appendText("   ↳ " + typeHint + "\n");
-            }
+            Platform.runLater(() -> {
+                // 添加到消息列表
+                messageList.add(messageModel);
+                messageCache.put(messageModel.getMessageId(), messageModel);
+                messageListView.scrollTo(messageList.size() - 1);
+            });
 
             // 保存到会话管理器
+            String displayMessage = String.format("[%s] %s: [文件] %s (%s)",
+                    time, isMyMessage ? "我" : contactName, fileName, chatService.formatFileSize(fileSize));
             sessionManager.addPrivateMessage(userId, contactId, displayMessage);
 
         } catch (Exception e) {
             e.printStackTrace();
             System.err.println("[ChatPrivateControl] 处理文件消息失败: " + e.getMessage());
-        }
-    }
-
-    /**
-     * 获取文件类型提示
-     */
-    private String getFileTypeHint(String fileType) {
-        switch (fileType) {
-            case "image": return "📷 图片文件";
-            case "video": return "🎬 视频文件";
-            case "audio": return "🎵 音频文件";
-            case "document": return "📄 文档文件";
-            case "text": return "📝 文本文件";
-            case "archive": return "📦 压缩文件";
-            default: return "📎 文件";
         }
     }
 

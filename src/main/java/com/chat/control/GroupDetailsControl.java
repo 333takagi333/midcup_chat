@@ -209,10 +209,23 @@ public class GroupDetailsControl implements Initializable {
      * 处理下载文件（调用服务处理）
      */
     private void handleDownloadFile() {
-        String selectedFile = fileListView.getSelectionModel().getSelectedItem();
-        groupDetailsService.downloadGroupFile(groupId, "", selectedFile, getCurrentWindow());
-    }
+        final String selectedFile = fileListView.getSelectionModel().getSelectedItem();
 
+        // 检查是否选择了文件
+        if (selectedFile == null || selectedFile.isEmpty() || "暂无文件".equals(selectedFile)) {
+            DialogUtil.showError(getCurrentWindow(), "请先选择一个文件");
+            return;
+        }
+
+        // 确保currentUserId不为null
+        if (currentUserId == null) {
+            DialogUtil.showError(getCurrentWindow(), "用户ID无效");
+            return;
+        }
+
+        // 使用final变量调用服务
+        groupDetailsService.downloadGroupFile(groupId, currentUserId, selectedFile, getCurrentWindow());
+    }
     /**
      * 处理添加成员
      */

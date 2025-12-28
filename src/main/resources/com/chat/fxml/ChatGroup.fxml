@@ -23,9 +23,12 @@
                 onAction="#showGroupDetails" />
     </HBox>
 
-    <!-- 聊天区域 -->
-    <TextArea fx:id="chatArea" VBox.vgrow="ALWAYS" editable="false" wrapText="true"
-              style="-fx-control-inner-background: #ffffff; -fx-font-family: 'Microsoft YaHei'; -fx-font-size: 14px;" />
+    <!-- 聊天区域 - 改为 ListView -->
+    <ListView fx:id="messageListView" VBox.vgrow="ALWAYS"
+              style="-fx-control-inner-background: #ffffff;
+                     -fx-background-color: #ffffff;
+                     -fx-font-family: 'Microsoft YaHei';
+                     -fx-font-size: 14px;" />
 
     <!-- 历史消息按钮区域 -->
     <HBox fx:id="historyButtonBox" alignment="CENTER" spacing="10" style="-fx-padding: 5;">

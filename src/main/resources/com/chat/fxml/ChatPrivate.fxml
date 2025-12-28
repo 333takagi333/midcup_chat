@@ -32,18 +32,14 @@
                 onAction="#showFriendProfile" />
     </HBox>
 
-    <!-- 聊天区域 -->
-    <TextArea fx:id="chatArea" VBox.vgrow="ALWAYS" editable="false" wrapText="true"
-              style="-fx-control-inner-background: #ffffff;
-                     -fx-background-color: #ffffff;
-                     -fx-font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
-                     -fx-font-size: 14px;
-                     -fx-text-fill: #1f2937;
+    <!-- 聊天区域 - 改为 ListView -->
+    <ListView fx:id="messageListView" VBox.vgrow="ALWAYS"
+              style="-fx-background-color: #ffffff;
                      -fx-border-width: 0;
-                     -fx-padding: 20;"
+                     -fx-padding: 10;"
               focusTraversable="false" />
 
-    <!-- 工具栏 - 注意：这里必须有fx:id -->
+    <!-- 工具栏 -->
     <HBox fx:id="historyButtonBox" style="-fx-background-color: #f9fafb; -fx-padding: 12 20; -fx-spacing: 8;"
           alignment="CENTER_LEFT">
         <!-- 历史记录按钮由Controller动态添加 -->
