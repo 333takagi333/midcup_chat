@@ -182,4 +182,33 @@ public class FileService {
                 !fileName.contains("<") && !fileName.contains(">") &&
                 !fileName.contains("|");
     }
+    public static File chooseAndUploadFileSimplified(Window window) {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("选择文件");
+        fileChooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("所有文件", "*.*"),
+                new FileChooser.ExtensionFilter("图片", "*.png", "*.jpg", "*.jpeg", "*.gif", "*.bmp"),
+                new FileChooser.ExtensionFilter("文档", "*.txt", "*.pdf", "*.doc", "*.docx", "*.xls", "*.xlsx"),
+                new FileChooser.ExtensionFilter("视频", "*.mp4", "*.avi", "*.mov"),
+                new FileChooser.ExtensionFilter("音频", "*.mp3", "*.wav"),
+                new FileChooser.ExtensionFilter("压缩包", "*.zip", "*.rar", "*.7z")
+        );
+
+        // 设置上次使用的目录
+        Preferences prefs = Preferences.userNodeForPackage(FileService.class);
+        String lastDir = prefs.get("lastFileDirectory", System.getProperty("user.home"));
+        File lastDirectory = new File(lastDir);
+        if (lastDirectory.exists() && lastDirectory.isDirectory()) {
+            fileChooser.setInitialDirectory(lastDirectory);
+        }
+
+        File selectedFile = fileChooser.showOpenDialog(window);
+
+        if (selectedFile != null) {
+            // 保存目录
+            prefs.put("lastFileDirectory", selectedFile.getParent());
+        }
+
+        return selectedFile;
+    }
 }

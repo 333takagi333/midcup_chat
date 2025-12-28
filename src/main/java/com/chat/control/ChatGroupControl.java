@@ -4,14 +4,18 @@ import com.chat.network.SocketClient;
 import com.chat.service.ChatService;
 import com.chat.service.ChatSessionManager;
 import com.chat.service.FileService;
+import com.chat.service.FileUploadService;
 import com.chat.service.MessageBroadcaster;
 import com.chat.service.RecentMessageService;
 import com.chat.ui.AvatarHelper;
 import com.chat.ui.DialogUtil;
+import com.chat.ui.ChatMessageCellFactory;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
@@ -22,10 +26,11 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.Window;
+import javafx.util.Callback;
 
 import java.io.File;
 import java.net.URL;
-import java.text.SimpleDateFormat;  // 添加import
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -36,7 +41,7 @@ public class ChatGroupControl implements Initializable, MessageBroadcaster.Group
 
     @FXML private Label groupNameLabel;
     @FXML private ImageView groupAvatar;
-    @FXML private TextArea chatArea;
+    @FXML private ListView<com.chat.model.ChatMessageModel> messageListView;
     @FXML private TextField messageInput;
     @FXML private HBox historyButtonBox;
     @FXML private Button groupDetailButton;
@@ -44,6 +49,7 @@ public class ChatGroupControl implements Initializable, MessageBroadcaster.Group
     @FXML private Button sendButton;
 
     private Button loadHistoryButton;
+    private ObservableList<com.chat.model.ChatMessageModel> messageList;
 
     private Long groupId;
     private String groupName;
@@ -62,9 +68,14 @@ public class ChatGroupControl implements Initializable, MessageBroadcaster.Group
     // 用于去重的集合
     private final Set<String> processedMessageKeys = Collections.newSetFromMap(new ConcurrentHashMap<>());
     private final Map<String, Long> pendingMessages = new ConcurrentHashMap<>();
+    private final Map<String, com.chat.model.ChatMessageModel> messageCache = new ConcurrentHashMap<>();
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
+        // 初始化消息列表
+        messageList = FXCollections.observableArrayList();
+        messageListView.setItems(messageList);
+
         setupChatUI();
         createHistoryButton();
         setupGroupDetailButton();
@@ -74,20 +85,41 @@ public class ChatGroupControl implements Initializable, MessageBroadcaster.Group
 
     private void setupChatUI() {
         messageInput.setOnAction(event -> sendMessage());
-        chatArea.setWrapText(true);
+
+        // 设置ListView的单元格工厂（稍后在setGroupInfo中初始化）
+        messageListView.setCellFactory(param -> {
+            if (socketClient != null && chatService != null && groupId != null && userId != null) {
+                return new ChatMessageCellFactory(socketClient, userId,
+                        messageListView.getScene().getWindow(), chatService, "group", groupId);
+            }
+            return new ListCell<>() {
+                @Override
+                protected void updateItem(com.chat.model.ChatMessageModel item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || item == null) {
+                        setText(null);
+                        setGraphic(null);
+                    } else {
+                        setText(item.toString());
+                        setGraphic(null);
+                    }
+                }
+            };
+        });
     }
 
     private void createHistoryButton() {
         loadHistoryButton = new Button("📜 历史记录");
-        loadHistoryButton.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-padding: 5 10;");
+        loadHistoryButton.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-padding: 8 16; -fx-background-radius: 6;");
         loadHistoryButton.setOnAction(event -> openHistoryWindow());
+        loadHistoryButton.setTooltip(new Tooltip("查看群聊历史记录"));
         historyButtonBox.getChildren().add(loadHistoryButton);
     }
 
     private void setupGroupDetailButton() {
         if (groupDetailButton != null) {
             groupDetailButton.setText("👥 详情");
-            groupDetailButton.setStyle("-fx-background-color: #9b59b6; -fx-text-fill: white; -fx-padding: 5 10;");
+            groupDetailButton.setStyle("-fx-background-color: #9b59b6; -fx-text-fill: white; -fx-padding: 8 16; -fx-background-radius: 6;");
             groupDetailButton.setOnAction(event -> showGroupDetails());
             groupDetailButton.setTooltip(new Tooltip("查看群聊详情"));
         }
@@ -96,7 +128,7 @@ public class ChatGroupControl implements Initializable, MessageBroadcaster.Group
     private void setupFileUploadButton() {
         if (fileUploadButton != null) {
             fileUploadButton.setText("📎");
-            fileUploadButton.setStyle("-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-padding: 5 10;");
+            fileUploadButton.setStyle("-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-padding: 8 16; -fx-background-radius: 6;");
             fileUploadButton.setTooltip(new Tooltip("上传文件到群聊 (最大50MB)"));
         }
     }
@@ -104,7 +136,7 @@ public class ChatGroupControl implements Initializable, MessageBroadcaster.Group
     private void setupSendButton() {
         if (sendButton != null) {
             sendButton.setText("发送");
-            sendButton.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-padding: 5 15;");
+            sendButton.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-padding: 8 20; -fx-background-radius: 6;");
             sendButton.setOnAction(event -> sendMessage());
         }
     }
@@ -122,6 +154,11 @@ public class ChatGroupControl implements Initializable, MessageBroadcaster.Group
             // 注册群聊消息监听器
             broadcaster.registerGroupListener(this.groupId.toString(), this);
 
+            // 设置单元格工厂（需要所有信息都准备好）
+            messageListView.setCellFactory(param ->
+                    new ChatMessageCellFactory(socketClient, this.userId,
+                            messageListView.getScene().getWindow(), chatService, "group", this.groupId));
+
             System.out.println("[ChatGroupControl] 设置群聊信息: " + groupName +
                     ", 群组ID: " + this.groupId + ", 监听器已注册");
 
@@ -138,7 +175,8 @@ public class ChatGroupControl implements Initializable, MessageBroadcaster.Group
         System.out.println("[ChatGroupControl] 清除群聊消息栏红点: " + groupName);
 
         // 清空聊天区域并加载本次登录记录
-        chatArea.clear();
+        messageList.clear();
+        messageCache.clear();
         loadCurrentSessionMessages();
 
         System.out.println("[ChatGroupControl] 群聊窗口已打开，已加载本次登录记录");
@@ -152,21 +190,131 @@ public class ChatGroupControl implements Initializable, MessageBroadcaster.Group
             // 从会话管理器获取本次登录的聊天记录
             List<String> sessionMessages = sessionManager.getGroupSession(groupId);
 
+            // 清空消息缓存
+            messageList.clear();
+            messageCache.clear();
+
             if (sessionMessages == null || sessionMessages.isEmpty()) {
                 // 没有本次登录的记录，显示简单欢迎信息
-                chatArea.appendText("--- 欢迎来到 " + groupName + " ---\n\n");
+                com.chat.model.ChatMessageModel welcomeMessage = new com.chat.model.ChatMessageModel(
+                        "welcome_" + System.currentTimeMillis(),
+                        userId,
+                        "系统",
+                        "--- 欢迎来到 " + groupName + " ---",
+                        System.currentTimeMillis(),
+                        false
+                );
+                messageList.add(welcomeMessage);
                 System.out.println("[ChatGroupControl] 无本次登录记录");
             } else {
-                // 有本次登录的记录，直接显示所有记录
+                // 有本次登录的记录，转换并显示所有记录
                 for (String message : sessionMessages) {
-                    chatArea.appendText(message + "\n");
+                    // 解析消息字符串为ChatMessageModel
+                    com.chat.model.ChatMessageModel messageModel = parseMessageString(message);
+                    if (messageModel != null) {
+                        messageList.add(messageModel);
+                        messageCache.put(messageModel.getMessageId(), messageModel);
+                    }
                 }
 
                 // 滚动到底部
-                chatArea.positionCaret(chatArea.getLength());
+                messageListView.scrollTo(messageList.size() - 1);
                 System.out.println("[ChatGroupControl] 加载本次登录记录 " + sessionMessages.size() + " 条");
             }
         });
+    }
+
+    /**
+     * 解析消息字符串为ChatMessageModel
+     */
+    private com.chat.model.ChatMessageModel parseMessageString(String messageStr) {
+        try {
+            // 示例消息格式: "[18:10] 用户1: 你好" 或 "[18:10] 用户1: [文件] 2.txt (1.5 KB)"
+            if (messageStr.startsWith("[") && messageStr.contains("]")) {
+                int timeEnd = messageStr.indexOf("]");
+                String timePart = messageStr.substring(1, timeEnd);
+
+                int colonIndex = messageStr.indexOf(":", timeEnd);
+                if (colonIndex == -1) return null;
+
+                String sender = messageStr.substring(timeEnd + 2, colonIndex).trim();
+                String content = messageStr.substring(colonIndex + 2).trim();
+
+                boolean isMyMessage = "我".equals(sender);
+                Long senderId = isMyMessage ? userId : 0L; // 对于群聊，需要从数据库获取senderId
+
+                // 生成消息ID
+                String messageId = "msg_" + System.currentTimeMillis() + "_" + content.hashCode() + "_" + UUID.randomUUID().toString().substring(0, 8);
+
+                // 检查是否是文件消息
+                if (content.startsWith("[文件]")) {
+                    // 解析文件消息
+                    // 格式: [文件] 文件名 (大小)
+                    String fileInfo = content.substring(4).trim();
+                    int parenIndex = fileInfo.lastIndexOf("(");
+                    if (parenIndex != -1) {
+                        String fileName = fileInfo.substring(0, parenIndex).trim();
+                        String sizeStr = fileInfo.substring(parenIndex + 1, fileInfo.length() - 1).trim();
+
+                        // 解析文件大小
+                        long fileSize = parseFileSize(sizeStr);
+                        String fileType = FileService.getFileTypeCategory(new File(fileName));
+
+                        // 生成文件ID
+                        String fileId = "file_" + senderId + "_" +
+                                System.currentTimeMillis() + "_" + fileName.hashCode();
+
+                        return new com.chat.model.ChatMessageModel(
+                                messageId,
+                                senderId,
+                                sender,
+                                fileName,
+                                fileSize,
+                                fileType,
+                                fileId,
+                                System.currentTimeMillis(),
+                                isMyMessage
+                        );
+                    }
+                }
+
+                // 文本消息
+                return new com.chat.model.ChatMessageModel(
+                        messageId,
+                        senderId,
+                        sender,
+                        content,
+                        System.currentTimeMillis(),
+                        isMyMessage
+                );
+            }
+        } catch (Exception e) {
+            System.err.println("[ChatGroupControl] 解析消息失败: " + messageStr + ", 错误: " + e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * 解析文件大小字符串
+     */
+    private long parseFileSize(String sizeStr) {
+        try {
+            if (sizeStr.endsWith(" B")) {
+                return Long.parseLong(sizeStr.replace(" B", "").trim());
+            } else if (sizeStr.endsWith(" KB")) {
+                double kb = Double.parseDouble(sizeStr.replace(" KB", "").trim());
+                return (long)(kb * 1024);
+            } else if (sizeStr.endsWith(" MB")) {
+                double mb = Double.parseDouble(sizeStr.replace(" MB", "").trim());
+                return (long)(mb * 1024 * 1024);
+            } else if (sizeStr.endsWith(" GB")) {
+                double gb = Double.parseDouble(sizeStr.replace(" GB", "").trim());
+                return (long)(gb * 1024 * 1024 * 1024);
+            }
+        } catch (Exception e) {
+            System.err.println("解析文件大小失败: " + sizeStr);
+        }
+        return 0;
     }
 
     /**
@@ -192,14 +340,14 @@ public class ChatGroupControl implements Initializable, MessageBroadcaster.Group
             // 创建新窗口显示群聊详情
             Stage detailsStage = new Stage();
             detailsStage.initModality(Modality.WINDOW_MODAL);
-            detailsStage.initOwner(chatArea.getScene().getWindow());
+            detailsStage.initOwner(messageListView.getScene().getWindow());
             detailsStage.setTitle(groupName + " 的详情");
             detailsStage.setScene(new javafx.scene.Scene(groupDetailsRoot, 450, 550));
             detailsStage.show();
 
         } catch (Exception e) {
             System.err.println("[ChatGroupControl] 打开群聊详情失败: " + e.getMessage());
-            DialogUtil.showError(chatArea.getScene().getWindow(), "打开群聊详情失败");
+            DialogUtil.showError(messageListView.getScene().getWindow(), "打开群聊详情失败");
         }
     }
 
@@ -210,42 +358,55 @@ public class ChatGroupControl implements Initializable, MessageBroadcaster.Group
     private void handleFileUpload() {
         System.out.println("[ChatGroupControl] 处理文件上传");
 
-        Window window = chatArea.getScene().getWindow();
+        Window window = messageListView.getScene().getWindow();
 
-        FileService.chooseAndUploadFile(window, file -> {
-            System.out.println("[ChatGroupControl] 选择了文件: " + file.getName());
-
-            // 在聊天区域显示上传中消息
-            String time = timeFormat.format(new Date());
-            chatArea.appendText("[" + time + "] 正在上传文件: " + file.getName() + "\n");
-
-            // 调用服务层处理文件上传
-            chatService.uploadGroupFile(
-                    window,
-                    socketClient,
-                    userId,
-                    groupId,
-                    groupName,
-                    file,
-                    () -> {
-                        // 上传成功后的回调
+        FileUploadService.uploadFile(
+                window,
+                socketClient,
+                userId,
+                null, // contactId为null，因为是群聊
+                groupId,
+                "group",
+                new FileUploadService.FileUploadCallback() {
+                    @Override
+                    public void onUploadSuccess(FileUploadService.FileUploadResult result) {
                         Platform.runLater(() -> {
-                            String time2 = timeFormat.format(new Date());
+                            // 在聊天区域显示文件消息
+                            String time = timeFormat.format(new Date());
                             String displayMessage = String.format("[%s] 我: [文件] %s (%s)",
-                                    time2, file.getName(), chatService.formatFileSize(file.length()));
+                                    time, result.getFileName(), result.getFormattedFileSize());
 
-                            chatArea.appendText(displayMessage + "\n");
+                            // 创建文件消息模型
+                            com.chat.model.ChatMessageModel fileMessage = new com.chat.model.ChatMessageModel(
+                                    "file_" + System.currentTimeMillis() + "_" + result.getFileName().hashCode(),
+                                    userId,
+                                    "我",
+                                    result.getFileName(),
+                                    result.getFileSize(),
+                                    result.getFileType(),
+                                    result.getFileId(),
+                                    System.currentTimeMillis(),
+                                    true
+                            );
+
+                            // 添加到消息列表
+                            messageList.add(fileMessage);
+                            messageCache.put(fileMessage.getMessageId(), fileMessage);
+                            messageListView.scrollTo(messageList.size() - 1);
+
+                            // 保存到会话管理器
                             sessionManager.addGroupMessage(groupId, displayMessage);
-
-                            // 滚动到底部
-                            chatArea.positionCaret(chatArea.getLength());
-
-                            // 添加共享提示
-                            chatArea.appendText("   ↳ 文件已共享到群聊\n");
                         });
                     }
-            );
-        });
+
+                    @Override
+                    public void onUploadFailure(String errorMessage) {
+                        Platform.runLater(() -> {
+                            DialogUtil.showError(window, "上传失败");
+                        });
+                    }
+                }
+        );
     }
 
     /**
@@ -270,7 +431,7 @@ public class ChatGroupControl implements Initializable, MessageBroadcaster.Group
             // 创建新窗口显示历史记录
             Stage historyStage = new Stage();
             historyStage.initModality(Modality.WINDOW_MODAL);
-            historyStage.initOwner(chatArea.getScene().getWindow());
+            historyStage.initOwner(messageListView.getScene().getWindow());
             historyStage.setTitle(groupName + " - 历史记录");
             historyStage.setScene(new javafx.scene.Scene(historyRoot, 600, 700));
             historyStage.show();
@@ -279,7 +440,7 @@ public class ChatGroupControl implements Initializable, MessageBroadcaster.Group
 
         } catch (Exception e) {
             System.err.println("[ChatGroupControl] 打开历史记录窗口失败: " + e.getMessage());
-            DialogUtil.showError(chatArea.getScene().getWindow(), "打开历史记录窗口失败: " + e.getMessage());
+            DialogUtil.showError(messageListView.getScene().getWindow(), "打开历史记录窗口失败: " + e.getMessage());
         }
     }
 
@@ -302,13 +463,27 @@ public class ChatGroupControl implements Initializable, MessageBroadcaster.Group
         String time = timeFormat.format(new Date(timestamp));
         String displayMessage = "[" + time + "] 我: " + content;
 
+        // 创建消息模型
+        com.chat.model.ChatMessageModel messageModel = new com.chat.model.ChatMessageModel(
+                "temp_" + messageKey,
+                userId,
+                "我",
+                content,
+                timestamp,
+                true
+        );
+
         // 标记为pending
         pendingMessages.put(messageKey, timestamp);
 
         // 立即显示并保存
-        chatArea.appendText(displayMessage + "\n");
+        Platform.runLater(() -> {
+            messageList.add(messageModel);
+            messageCache.put(messageModel.getMessageId(), messageModel);
+            messageListView.scrollTo(messageList.size() - 1);
+        });
+
         sessionManager.addGroupMessage(groupId, displayMessage);
-        chatArea.positionCaret(chatArea.getLength()); // 滚动到底部
 
         System.out.println("[ChatGroupControl] 本地显示群聊消息，key: " + messageKey);
 
@@ -330,11 +505,20 @@ public class ChatGroupControl implements Initializable, MessageBroadcaster.Group
 
             } else {
                 Platform.runLater(() -> {
-                    DialogUtil.showError(chatArea.getScene().getWindow(), "发送失败，请检查网络连接");
+                    DialogUtil.showError(messageListView.getScene().getWindow(), "发送失败，请检查网络连接");
                     pendingMessages.remove(messageKey);
 
                     // 标记为发送失败
-                    chatArea.appendText("[发送失败] " + displayMessage + "\n");
+                    com.chat.model.ChatMessageModel failedMessage = new com.chat.model.ChatMessageModel(
+                            "failed_" + messageKey,
+                            userId,
+                            "我",
+                            "[发送失败] " + content,
+                            System.currentTimeMillis(),
+                            true
+                    );
+                    messageList.add(failedMessage);
+                    messageListView.scrollTo(messageList.size() - 1);
                 });
             }
         }).start();
@@ -390,15 +574,33 @@ public class ChatGroupControl implements Initializable, MessageBroadcaster.Group
         String senderName = fromUserId.equals(userId) ? "我" : "用户" + fromUserId;
         String displayMessage = "[" + time + "] " + senderName + ": " + content;
 
-        // 消息已经由 MessageBroadcaster 保存到会话管理器，这里只需显示
-        if (chatArea != null) {
-            chatArea.appendText(displayMessage + "\n");
-            chatArea.positionCaret(chatArea.getLength()); // 滚动到底部
+        // 创建消息模型
+        String cacheKey = "msg_" + (messageId != null ? messageId : content.hashCode());
+        if (messageCache.containsKey(cacheKey)) {
+            System.out.println("[ChatGroupControl] 消息已在列表中: " + content.substring(0, Math.min(20, content.length())));
+            return;
         }
+
+        com.chat.model.ChatMessageModel messageModel = new com.chat.model.ChatMessageModel(
+                cacheKey,
+                fromUserId,
+                senderName,
+                content,
+                timestamp,
+                fromUserId.equals(userId)
+        );
+
+        // 添加到消息列表
+        messageList.add(messageModel);
+        messageCache.put(cacheKey, messageModel);
+        messageListView.scrollTo(messageList.size() - 1);
 
         System.out.println("[ChatGroupControl] 显示新群聊消息: " +
                 (senderName.equals("我") ? "发送" : "接收") + " - " +
                 content.substring(0, Math.min(20, content.length())));
+
+        // 保存到会话管理器
+        sessionManager.addGroupMessage(groupId, displayMessage);
     }
 
     /**
@@ -413,46 +615,40 @@ public class ChatGroupControl implements Initializable, MessageBroadcaster.Group
             String downloadUrl = fileMessage.get("downloadUrl").getAsString();
             Long senderId = fileMessage.get("senderId").getAsLong();
             Long messageGroupId = fileMessage.get("groupId").getAsLong();
+            Long messageId = fileMessage.has("messageId") ? fileMessage.get("messageId").getAsLong() : null;
 
             String time = timeFormat.format(new Date(timestamp));
-            String senderName = senderId.equals(userId) ? "我" : "用户" + senderId;
 
-            // 创建文件消息
-            String displayMessage = String.format("[%s] %s: [文件] %s (%s)",
-                    time, senderName, fileName, chatService.formatFileSize(fileSize));
+            // 创建文件消息模型
+            boolean isMyMessage = senderId.equals(userId);
+            com.chat.model.ChatMessageModel messageModel = new com.chat.model.ChatMessageModel(
+                    "file_" + (messageId != null ? messageId : System.currentTimeMillis()),
+                    senderId,
+                    isMyMessage ? "我" : "用户" + senderId,
+                    fileName,
+                    fileSize,
+                    fileType,
+                    fileId,
+                    timestamp,
+                    isMyMessage
+            );
 
-            // 显示文件消息
-            chatArea.appendText(displayMessage + "\n");
-
-            // 添加文件类型提示
-            String typeHint = getFileTypeHint(fileType);
-            if (!typeHint.isEmpty()) {
-                String hintText = senderId.equals(userId) ?
-                        "您共享了" + typeHint : senderName + "共享了" + typeHint;
-                chatArea.appendText("   ↳ " + hintText + "\n");
-            }
+            Platform.runLater(() -> {
+                // 添加到消息列表
+                messageList.add(messageModel);
+                messageCache.put(messageModel.getMessageId(), messageModel);
+                messageListView.scrollTo(messageList.size() - 1);
+            });
 
             // 保存到会话管理器
+            String displayMessage = String.format("[%s] %s: [文件] %s (%s)",
+                    time, isMyMessage ? "我" : "用户" + senderId,
+                    fileName, chatService.formatFileSize(fileSize));
             sessionManager.addGroupMessage(groupId, displayMessage);
 
         } catch (Exception e) {
             e.printStackTrace();
             System.err.println("[ChatGroupControl] 处理群聊文件消息失败: " + e.getMessage());
-        }
-    }
-
-    /**
-     * 获取文件类型提示
-     */
-    private String getFileTypeHint(String fileType) {
-        switch (fileType) {
-            case "image": return "图片文件";
-            case "video": return "视频文件";
-            case "audio": return "音频文件";
-            case "document": return "文档文件";
-            case "text": return "文本文件";
-            case "archive": return "压缩文件";
-            default: return "文件";
         }
     }
 

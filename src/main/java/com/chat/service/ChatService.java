@@ -18,7 +18,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 /**
- * 聊天业务逻辑服务
+ * 聊天业务逻辑服务（只包含文件下载功能，上传功能独立到FileUploadService）
  */
 public class ChatService {
 
@@ -31,229 +31,36 @@ public class ChatService {
     private final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm");
     // 数据库datetime格式
     private final SimpleDateFormat dbDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+    private String serverBaseUrl = "http://localhost:8080/";
 
-    /**
-     * 上传私聊文件
-     */
-    public void uploadPrivateFile(Window window, SocketClient client, Long userId, Long contactId,
-                                  String contactName, File file, Runnable onSuccess) {
-        if (file == null || !file.exists()) {
-            Platform.runLater(() -> showError(window, "错误", "文件不存在"));
-            return;
-        }
-
-        // 检查文件大小（最大50MB）
-        if (file.length() > 50 * 1024 * 1024) {
-            Platform.runLater(() -> showError(window, "错误", "文件太大，最大支持50MB"));
-            return;
-        }
-
-        // 1. 创建上传请求
-        FileUploadRequest uploadRequest = new FileUploadRequest();
-        uploadRequest.setSenderId(userId);
-        uploadRequest.setReceiverId(contactId);
-        uploadRequest.setFileName(file.getName());
-        uploadRequest.setFileSize(file.length());
-        uploadRequest.setFileType(getFileType(file));
-        uploadRequest.setChatType("private");
-
-        // 2. 发送上传请求
-        new Thread(() -> {
-            try {
-                String response = client.sendFileUploadRequest(uploadRequest);
-                if (response == null) {
-                    Platform.runLater(() -> showError(window, "上传失败", "无法连接到服务器"));
-                    return;
-                }
-
-                JsonObject jsonResponse = jsonParser.parse(response).getAsJsonObject();
-                if (!jsonResponse.get("success").getAsBoolean()) {
-                    String errorMsg = jsonResponse.get("message").getAsString();
-                    Platform.runLater(() -> showError(window, "上传失败", errorMsg));
-                    return;
-                }
-
-                String fileId = jsonResponse.get("fileId").getAsString();
-                String uploadUrl = jsonResponse.get("uploadUrl").getAsString();
-                String downloadUrl = jsonResponse.get("downloadUrl").getAsString();
-
-                // 3. 上传文件到服务器
-                boolean uploadSuccess = uploadFileToServer(file, uploadUrl);
-                if (!uploadSuccess) {
-                    Platform.runLater(() -> showError(window, "上传失败", "文件上传失败"));
-                    return;
-                }
-
-                // 4. 发送文件消息
-                sendFileMessage(client, userId, contactId, null, "private",
-                        fileId, file.getName(), file.length(), getFileType(file), downloadUrl);
-
-                // 5. 成功回调
-                Platform.runLater(() -> {
-                    if (onSuccess != null) {
-                        onSuccess.run();
-                    }
-                    showInfo(window, "上传成功", "文件已发送");
-                });
-
-            } catch (Exception e) {
-                e.printStackTrace();
-                Platform.runLater(() -> showError(window, "上传异常", e.getMessage()));
-            }
-        }).start();
+    // 可以设置服务器地址
+    public void setServerBaseUrl(String serverBaseUrl) {
+        this.serverBaseUrl = serverBaseUrl;
+        System.out.println("[ChatService] 设置服务器地址: " + serverBaseUrl);
     }
 
-    /**
-     * 上传群聊文件
-     */
-    public void uploadGroupFile(Window window, SocketClient client, Long userId, Long groupId,
-                                String groupName, File file, Runnable onSuccess) {
-        if (file == null || !file.exists()) {
-            Platform.runLater(() -> showError(window, "错误", "文件不存在"));
-            return;
+    // 获取完整的URL
+    private String getFullUrl(String url) {
+        if (url == null || url.isEmpty()) {
+            return url;
         }
 
-        // 检查文件大小（最大50MB）
-        if (file.length() > 50 * 1024 * 1024) {
-            Platform.runLater(() -> showError(window, "错误", "文件太大，最大支持50MB"));
-            return;
+        // 如果已经是完整URL，直接返回
+        if (url.startsWith("http://") || url.startsWith("https://")) {
+            return url;
         }
 
-        // 1. 创建上传请求
-        FileUploadRequest uploadRequest = new FileUploadRequest();
-        uploadRequest.setSenderId(userId);
-        uploadRequest.setGroupId(groupId);
-        uploadRequest.setFileName(file.getName());
-        uploadRequest.setFileSize(file.length());
-        uploadRequest.setFileType(getFileType(file));
-        uploadRequest.setChatType("group");
-
-        // 2. 发送上传请求
-        new Thread(() -> {
-            try {
-                String response = client.sendRequest(uploadRequest);
-                if (response == null) {
-                    Platform.runLater(() -> showError(window, "上传失败", "无法连接到服务器"));
-                    return;
-                }
-
-                JsonObject jsonResponse = jsonParser.parse(response).getAsJsonObject();
-                if (!jsonResponse.get("success").getAsBoolean()) {
-                    String errorMsg = jsonResponse.get("message").getAsString();
-                    Platform.runLater(() -> showError(window, "上传失败", errorMsg));
-                    return;
-                }
-
-                String fileId = jsonResponse.get("fileId").getAsString();
-                String uploadUrl = jsonResponse.get("uploadUrl").getAsString();
-                String downloadUrl = jsonResponse.get("downloadUrl").getAsString();
-
-                // 3. 上传文件到服务器
-                boolean uploadSuccess = uploadFileToServer(file, uploadUrl);
-                if (!uploadSuccess) {
-                    Platform.runLater(() -> showError(window, "上传失败", "文件上传失败"));
-                    return;
-                }
-
-                // 4. 发送群聊文件消息
-                sendFileMessage(client, userId, null, groupId, "group",
-                        fileId, file.getName(), file.length(), getFileType(file), downloadUrl);
-
-                // 5. 成功回调
-                Platform.runLater(() -> {
-                    if (onSuccess != null) {
-                        onSuccess.run();
-                    }
-                    showInfo(window, "上传成功", "文件已共享到群聊");
-                });
-
-            } catch (Exception e) {
-                e.printStackTrace();
-                Platform.runLater(() -> showError(window, "上传异常", e.getMessage()));
-            }
-        }).start();
-    }
-
-    /**
-     * 将文件上传到服务器
-     */
-    private boolean uploadFileToServer(File file, String uploadUrl) {
-        try {
-            URL url = new URL(uploadUrl);
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("PUT");
-            connection.setDoOutput(true);
-            connection.setRequestProperty("Content-Type", "application/octet-stream");
-            connection.setRequestProperty("Content-Length", String.valueOf(file.length()));
-            connection.setConnectTimeout(30000);
-            connection.setReadTimeout(30000);
-
-            // 上传文件
-            Files.copy(file.toPath(), connection.getOutputStream());
-
-            int responseCode = connection.getResponseCode();
-            boolean success = responseCode == 200 || responseCode == 201;
-
-            connection.disconnect();
-            return success;
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            return false;
-        }
-    }
-
-    /**
-     * 发送文件消息
-     */
-    private void sendFileMessage(SocketClient client, Long senderId, Long receiverId, Long groupId,
-                                 String chatType, String fileId, String fileName, long fileSize,
-                                 String fileType, String downloadUrl) {
-        try {
-            if ("private".equals(chatType)) {
-                // 使用标准的私聊文件发送协议
-                FilePrivateSend message = new FilePrivateSend();
-                message.setFileId(fileId);
-                message.setFileName(fileName);
-                message.setFileSize(fileSize);
-                message.setFileType(fileType);
-                message.setSenderId(senderId);
-                message.setReceiverId(receiverId);
-                message.setDownloadUrl(downloadUrl);
-                message.setTimestamp(System.currentTimeMillis());
-
-                // 发送文件消息
-                client.sendMessage(message);
-                System.out.println("[ChatService] 发送私聊文件消息: " + fileName + " -> " + receiverId);
-
-            } else if ("group".equals(chatType)) {
-                // 使用标准的群聊文件发送协议
-                FileGroupSend message = new FileGroupSend();
-                message.setFileId(fileId);
-                message.setFileName(fileName);
-                message.setFileSize(fileSize);
-                message.setFileType(fileType);
-                message.setSenderId(senderId);
-                message.setGroupId(groupId);
-                message.setDownloadUrl(downloadUrl);
-                message.setTimestamp(System.currentTimeMillis());
-
-                // 发送文件消息
-                client.sendMessage(message);
-                System.out.println("[ChatService] 发送群聊文件消息: " + fileName + " -> 群组" + groupId);
-            }
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            System.err.println("[ChatService] 发送文件消息失败: " + e.getMessage());
-        }
+        // 如果是相对路径，添加服务器地址
+        String fullUrl = serverBaseUrl + (url.startsWith("/") ? url : "/" + url);
+        System.out.println("[ChatService] 转换相对路径: " + url + " -> " + fullUrl);
+        return fullUrl;
     }
 
     /**
      * 获取文件类型
      */
-    private String getFileType(File file) {
-        String name = file.getName().toLowerCase();
+    private String getFileType(String fileName) {
+        String name = fileName.toLowerCase();
         if (name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg") ||
                 name.endsWith(".gif") || name.endsWith(".bmp")) {
             return "image";
@@ -314,7 +121,7 @@ public class ChatService {
         alert.show();
     }
 
-    // ========== 以下是原有的方法 ==========
+    // ========== 文本消息相关方法 ==========
 
     /**
      * 发送私聊消息
@@ -453,7 +260,7 @@ public class ChatService {
     }
 
     /**
-     * 处理文件消息
+     * 处理文件消息（只处理接收，不处理上传）
      */
     private void handleFileMessage(JsonObject fileMessage) {
         try {
@@ -496,8 +303,7 @@ public class ChatService {
             // 通知接收方
             String senderName = "用户" + message.getSenderId();
 
-            // 调用MessageBroadcaster的广播方法（需要扩展MessageBroadcaster支持文件消息）
-            // 或者使用现有的文本消息广播，将文件消息转换为文本格式
+            // 将文件消息对象序列化为JSON字符串
             String fileContent = gson.toJson(message);
 
             broadcaster.broadcastPrivateMessage(
@@ -540,6 +346,9 @@ public class ChatService {
             e.printStackTrace();
         }
     }
+
+    // ========== 文件下载功能 ==========
+
     /**
      * 下载文件
      */
@@ -551,11 +360,18 @@ public class ChatService {
             return;
         }
 
-        // 1. 创建下载请求
+        System.out.println("[ChatService] 开始下载文件:");
+        System.out.println("  - fileId: " + fileId);
+        System.out.println("  - fileName: " + fileName);
+        System.out.println("  - chatType: " + chatType);
+        System.out.println("  - userId: " + userId);
+        System.out.println("  - targetId: " + targetId);
+
+        // 1. 创建下载请求 - 确保使用正确的类型
         FileDownloadRequest downloadRequest = new FileDownloadRequest();
         downloadRequest.setFileId(fileId);
         downloadRequest.setUserId(userId);
-        downloadRequest.setChatType(chatType);
+        downloadRequest.setChatType(chatType); // "private" 或 "group"
         downloadRequest.setFileName(fileName);
 
         // 设置目标ID
@@ -563,6 +379,20 @@ public class ChatService {
             downloadRequest.setContactId(targetId);
         } else if ("group".equals(chatType) && targetId != null) {
             downloadRequest.setGroupId(targetId);
+        }
+
+        // 调试：打印请求内容
+        System.out.println("[ChatService] 创建下载请求:");
+        System.out.println("  - type: " + downloadRequest.getType()); // 应该是 "file_download_request"
+        System.out.println("  - chatType: " + downloadRequest.getChatType());
+        System.out.println("  - fileId: " + downloadRequest.getFileId());
+        System.out.println("  - fileName: " + downloadRequest.getFileName());
+
+        if (downloadRequest.getGroupId() != null) {
+            System.out.println("  - groupId: " + downloadRequest.getGroupId());
+        }
+        if (downloadRequest.getContactId() != null) {
+            System.out.println("  - contactId: " + downloadRequest.getContactId());
         }
 
         // 2. 发送下载请求
@@ -574,6 +404,8 @@ public class ChatService {
 
                 // 发送下载请求
                 String response = client.sendFileDownloadRequest(downloadRequest);
+                System.out.println("[ChatService] 收到服务器响应: " + response);
+
                 if (response == null) {
                     Platform.runLater(() -> showError(window, "下载失败", "无法连接到服务器"));
                     return;
@@ -581,8 +413,14 @@ public class ChatService {
 
                 // 解析响应
                 JsonObject jsonResponse = jsonParser.parse(response).getAsJsonObject();
+
+                // 检查响应类型
+                String responseType = jsonResponse.has("type") ? jsonResponse.get("type").getAsString() : "unknown";
+                System.out.println("[ChatService] 响应类型: " + responseType);
+
                 if (!jsonResponse.get("success").getAsBoolean()) {
                     String errorMsg = jsonResponse.get("message").getAsString();
+                    System.err.println("[ChatService] 下载失败: " + errorMsg);
                     Platform.runLater(() -> showError(window, "下载失败", errorMsg));
                     return;
                 }
@@ -590,6 +428,10 @@ public class ChatService {
                 String downloadUrl = jsonResponse.get("downloadUrl").getAsString();
                 String actualFileName = jsonResponse.has("fileName") ?
                         jsonResponse.get("fileName").getAsString() : fileName;
+
+                System.out.println("[ChatService] 服务器返回信息:");
+                System.out.println("  - 原始下载链接: " + downloadUrl);
+                System.out.println("  - 文件名: " + actualFileName);
 
                 // 3. 显示下载成功信息
                 Platform.runLater(() -> {
@@ -601,6 +443,7 @@ public class ChatService {
 
             } catch (Exception e) {
                 e.printStackTrace();
+                System.err.println("[ChatService] 下载异常: " + e.getMessage());
                 Platform.runLater(() -> showError(window, "下载异常", e.getMessage()));
             }
         }).start();
@@ -642,8 +485,11 @@ public class ChatService {
                         showInfo(window, "下载开始", "正在下载文件: " + fileName);
                     });
 
-                    // 创建URL连接
-                    URL url = new URL(downloadUrl);
+                    // 关键：构建完整的下载URL
+                    String fullDownloadUrl = buildDownloadUrl(downloadUrl);
+                    System.out.println("[ChatService] 下载链接转换: " + downloadUrl + " -> " + fullDownloadUrl);
+
+                    URL url = new URL(fullDownloadUrl);
                     java.net.HttpURLConnection connection = (java.net.HttpURLConnection) url.openConnection();
                     connection.setRequestMethod("GET");
                     connection.setConnectTimeout(30000);
@@ -651,6 +497,7 @@ public class ChatService {
 
                     // 检查响应码
                     int responseCode = connection.getResponseCode();
+                    System.out.println("[ChatService] 服务器响应码: " + responseCode);
                     if (responseCode != 200) {
                         Platform.runLater(() -> {
                             showError(window, "下载失败", "服务器返回错误码: " + responseCode);
@@ -660,6 +507,7 @@ public class ChatService {
 
                     // 获取文件大小
                     long fileSize = connection.getContentLengthLong();
+                    System.out.println("[ChatService] 文件大小: " + fileSize + " bytes");
 
                     // 创建输入流和输出流
                     try (java.io.InputStream inputStream = connection.getInputStream();
@@ -677,9 +525,11 @@ public class ChatService {
                             // 可以在这里添加下载进度更新
                             if (fileSize > 0) {
                                 int progress = (int) ((totalBytesRead * 100) / fileSize);
-                                // 如果需要进度显示，可以在这里更新UI
+                                System.out.println("[ChatService] 下载进度: " + progress + "%");
                             }
                         }
+
+                        System.out.println("[ChatService] 下载完成，总字节: " + totalBytesRead);
                     }
 
                     // 关闭连接
@@ -710,6 +560,37 @@ public class ChatService {
             e.printStackTrace();
             Platform.runLater(() -> showError(window, "错误", "创建下载任务失败: " + e.getMessage()));
         }
+    }
+
+    /**
+     * 构建完整的下载URL（关键方法）
+     */
+    private String buildDownloadUrl(String relativeUrl) {
+        if (relativeUrl == null || relativeUrl.trim().isEmpty()) {
+            throw new IllegalArgumentException("下载URL不能为空");
+        }
+
+        // 如果已经是完整URL，直接返回
+        if (relativeUrl.startsWith("http://") || relativeUrl.startsWith("https://")) {
+            return relativeUrl;
+        }
+
+        // 清理路径：移除开头的斜杠
+        String cleanUrl = relativeUrl;
+        if (cleanUrl.startsWith("/")) {
+            cleanUrl = cleanUrl.substring(1);
+        }
+
+        // 添加服务器前缀
+        String fullUrl = serverBaseUrl + "/" + cleanUrl;
+
+        System.out.println("[ChatService] 构建下载URL: ");
+        System.out.println("  - 原始路径: " + relativeUrl);
+        System.out.println("  - 清理后: " + cleanUrl);
+        System.out.println("  - 服务器地址: " + serverBaseUrl);
+        System.out.println("  - 完整URL: " + fullUrl);
+
+        return fullUrl;
     }
 
     /**
@@ -793,13 +674,18 @@ public class ChatService {
                     showInfo(window, "下载开始", "正在下载文件: " + saveFile.getName());
                 });
 
-                URL url = new URL(downloadUrl);
+                // 关键：构建完整的下载URL
+                String fullDownloadUrl = buildDownloadUrl(downloadUrl);
+                System.out.println("[ChatService] 下载到指定路径URL: " + downloadUrl + " -> " + fullDownloadUrl);
+
+                URL url = new URL(fullDownloadUrl);
                 java.net.HttpURLConnection connection = (java.net.HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
                 connection.setConnectTimeout(30000);
                 connection.setReadTimeout(30000);
 
                 int responseCode = connection.getResponseCode();
+                System.out.println("[ChatService] 服务器响应码: " + responseCode);
                 if (responseCode != 200) {
                     Platform.runLater(() -> {
                         showError(window, "下载失败", "服务器返回错误码: " + responseCode);
@@ -812,10 +698,14 @@ public class ChatService {
 
                     byte[] buffer = new byte[8192];
                     int bytesRead;
+                    long totalBytes = 0;
 
                     while ((bytesRead = inputStream.read(buffer)) != -1) {
                         outputStream.write(buffer, 0, bytesRead);
+                        totalBytes += bytesRead;
                     }
+
+                    System.out.println("[ChatService] 下载完成，总字节: " + totalBytes);
                 }
 
                 connection.disconnect();
