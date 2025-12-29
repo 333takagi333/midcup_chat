@@ -177,6 +177,82 @@
     -fx-padding: 10 16;
 }
 
+/* Chat headers and toolbars */
+.chat-header {
+    -fx-background-color: linear-gradient(to right, #3f8bfa, #5ba8ff);
+    -fx-padding: 12 18;
+    -fx-spacing: 12;
+    -fx-alignment: center-left;
+    -fx-effect: dropshadow(gaussian, rgba(59, 130, 246, 0.2), 10, 0.22, 0, 2);
+}
+
+.header-title {
+    -fx-text-fill: white;
+    -fx-font-size: 16px;
+    -fx-font-weight: 700;
+}
+
+.header-button {
+    -fx-background-color: rgba(255, 255, 255, 0.18);
+    -fx-text-fill: white;
+    -fx-font-size: 13px;
+    -fx-padding: 6 16;
+    -fx-background-radius: 8;
+    -fx-border-color: rgba(255, 255, 255, 0.35);
+    -fx-border-radius: 8;
+    -fx-cursor: hand;
+}
+
+.header-button:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.26);
+}
+
+.toolbar {
+    -fx-background-color: #f1f5f9;
+    -fx-padding: 10 16;
+    -fx-spacing: 10;
+    -fx-border-color: #e2e8f0;
+    -fx-border-width: 1 0 0 0;
+}
+
+.chat-input {
+    -fx-background-color: #f8fbff;
+    -fx-border-color: #c7dbff;
+    -fx-border-radius: 10;
+    -fx-background-radius: 10;
+    -fx-padding: 12 14;
+}
+
+.chat-input:focused {
+    -fx-border-color: #3b82f6;
+    -fx-effect: dropshadow(gaussian, rgba(59, 130, 246, 0.18), 8, 0.18, 0, 2);
+    -fx-background-color: #ffffff;
+}
+
+.icon-button {
+    -fx-background-color: #eef6ff;
+    -fx-text-fill: #1d4ed8;
+    -fx-font-size: 16px;
+    -fx-padding: 10 12;
+    -fx-background-radius: 10;
+    -fx-border-color: #c7dbff;
+    -fx-border-radius: 10;
+    -fx-cursor: hand;
+}
+
+.icon-button:hover {
+    -fx-background-color: #e2efff;
+}
+
+.dialog-card {
+    -fx-background-color: white;
+    -fx-background-radius: 14;
+    -fx-border-radius: 14;
+    -fx-border-color: #d7e6ff;
+    -fx-padding: 20;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.08), 10, 0.14, 0, 3);
+}
+
 /* Tabs */
 .pill-tabs {
     -fx-background-color: transparent;

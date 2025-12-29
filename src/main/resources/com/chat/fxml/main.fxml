@@ -31,9 +31,9 @@
 
             <!-- 刷新按钮 -->
             <Button fx:id="refreshButton" text="刷新"
-                    prefWidth="60" prefHeight="35"
+                    prefWidth="86" prefHeight="36"
                     onAction="#handleRefreshClick"
-                    styleClass="primary-button">
+                    styleClass="header-button">
                 <tooltip>
                     <Tooltip text="刷新好友和群组列表 (F5)"/>
                 </tooltip>
@@ -41,13 +41,13 @@
 
             <!-- 通知按钮 -->
             <Button fx:id="notificationButton" text="通知"
-                    prefWidth="60" prefHeight="35"
-                    styleClass="soft-button"/>
+                    prefWidth="86" prefHeight="36"
+                    styleClass="header-button"/>
 
             <!-- 主菜单 -->
             <MenuButton fx:id="mainMenu" text="菜单"
-                        prefWidth="60" prefHeight="35"
-                        styleClass="ghost-button">
+                        prefWidth="86" prefHeight="36"
+                        styleClass="header-button">
                 <items>
                     <!-- 个人资料 -->
                     <MenuItem fx:id="profileMenuItem" text="个人资料"

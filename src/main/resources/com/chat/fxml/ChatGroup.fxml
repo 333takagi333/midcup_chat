@@ -7,57 +7,45 @@
 
 <VBox xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.chat.control.ChatGroupControl" spacing="0"
+      styleClass="dialog-card"
       stylesheets="@../css/main.css">
 
     <!-- 标题栏 -->
-    <HBox style="-fx-background-color: #3498db; -fx-padding: 10;" spacing="10" alignment="CENTER_LEFT">
+    <HBox styleClass="chat-header" spacing="10" alignment="CENTER_LEFT">
         <ImageView fx:id="groupAvatar" fitWidth="40" fitHeight="40" preserveRatio="true" />
 
         <VBox spacing="2">
-            <Label fx:id="groupNameLabel" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: white;" />
+            <Label fx:id="groupNameLabel" styleClass="header-title" />
         </VBox>
 
         <Region HBox.hgrow="ALWAYS" />
 
         <!-- 详情按钮 -->
-        <Button fx:id="groupDetailButton" text="详情" style="-fx-background-color: #2980b9; -fx-text-fill: white;"
+        <Button fx:id="groupDetailButton" text="详情" styleClass="header-button"
                 onAction="#showGroupDetails" />
     </HBox>
 
     <!-- 聊天区域 - 改为 ListView -->
     <ListView fx:id="messageListView" VBox.vgrow="ALWAYS"
-              style="-fx-control-inner-background: #ffffff;
-                     -fx-background-color: #ffffff;
-                     -fx-font-family: 'Microsoft YaHei';
-                     -fx-font-size: 14px;" />
+              styleClass="list-view" />
 
     <!-- 历史消息按钮区域 -->
-    <HBox fx:id="historyButtonBox" alignment="CENTER" spacing="10" style="-fx-padding: 5;">
+    <HBox fx:id="historyButtonBox" alignment="CENTER" spacing="10" styleClass="toolbar">
         <!-- 按钮将通过Controller动态添加 -->
     </HBox>
 
     <!-- 输入区域 -->
-    <HBox spacing="5" style="-fx-padding: 10; -fx-background-color: #ecf0f1;">
+    <HBox spacing="10" style="-fx-padding: 14 16;">
         <TextField fx:id="messageInput" HBox.hgrow="ALWAYS" promptText="输入群消息..."
-                   style="-fx-background-radius: 5; -fx-border-radius: 5;" />
+                   styleClass="chat-input" />
 
         <!-- 上传文件按钮 -->
         <Button fx:id="fileUploadButton" text="📎"
-                style="-fx-background-color: #e74c3c;
-                       -fx-text-fill: white;
-                       -fx-font-size: 16px;
-                       -fx-background-radius: 5;
-                       -fx-padding: 5 10;
-                       -fx-cursor: hand;"
+                styleClass="icon-button"
                 onAction="#handleFileUpload" />
 
         <!-- 发送按钮 -->
         <Button fx:id="sendButton" text="发送" onAction="#sendMessage" defaultButton="true"
-                style="-fx-background-color: #3498db;
-                       -fx-text-fill: white;
-                       -fx-font-weight: bold;
-                       -fx-background-radius: 5;
-                       -fx-padding: 5 15;
-                       -fx-cursor: hand;" />
+                styleClass="primary-button" />
     </HBox>
 </VBox>

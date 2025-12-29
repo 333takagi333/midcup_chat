@@ -7,76 +7,50 @@
 
 <VBox xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.chat.control.ChatPrivateControl" spacing="0"
-      style="-fx-background-color: #ffffff;"
+      styleClass="dialog-card"
       stylesheets="@../css/main.css">
 
     <!-- 标题栏 -->
-    <HBox style="-fx-background-color: #3b82f6; -fx-padding: 16 20;" alignment="CENTER_LEFT">
+    <HBox styleClass="chat-header" alignment="CENTER_LEFT">
 
         <ImageView fx:id="contactAvatar" fitWidth="36" fitHeight="36" preserveRatio="true"
                    style="-fx-border-color: white; -fx-border-width: 2; -fx-border-radius: 18;" />
 
         <VBox spacing="2" style="-fx-padding: 0 0 0 12;">
             <Label fx:id="contactNameLabel" text="好友名称"
-                   style="-fx-font-size: 16px; -fx-font-weight: 600; -fx-text-fill: white;" />
+                   styleClass="header-title" />
         </VBox>
 
         <Region HBox.hgrow="ALWAYS" />
 
         <Button fx:id="profileButton" text="详情"
-                style="-fx-background-color: rgba(255,255,255,0.2);
-                       -fx-text-fill: white;
-                       -fx-font-size: 13px;
-                       -fx-padding: 6 16;
-                       -fx-cursor: hand;
-                       -fx-background-radius: 6;"
+                styleClass="header-button"
                 onAction="#showFriendProfile" />
     </HBox>
 
     <!-- 聊天区域 - 改为 ListView -->
     <ListView fx:id="messageListView" VBox.vgrow="ALWAYS"
-              style="-fx-background-color: #ffffff;
-                     -fx-border-width: 0;
-                     -fx-padding: 10;"
+              styleClass="list-view"
               focusTraversable="false" />
 
     <!-- 工具栏 -->
-    <HBox fx:id="historyButtonBox" style="-fx-background-color: #f9fafb; -fx-padding: 12 20; -fx-spacing: 8;"
+    <HBox fx:id="historyButtonBox" styleClass="toolbar"
           alignment="CENTER_LEFT">
-        <!-- 历史记录按钮由Controller动态添加 -->
     </HBox>
 
     <!-- 输入区域 -->
-    <HBox style="-fx-background-color: #ffffff; -fx-padding: 16 20; -fx-spacing: 12;" alignment="CENTER">
+    <HBox style="-fx-padding: 16 20; -fx-spacing: 12;" alignment="CENTER">
 
         <TextField fx:id="messageInput" HBox.hgrow="ALWAYS" promptText="输入消息..."
-                   style="-fx-background-color: #f9fafb;
-                          -fx-border-color: #e5e7eb;
-                          -fx-border-width: 1;
-                          -fx-padding: 12 16;
-                          -fx-font-size: 14px;
-                          -fx-text-fill: #1f2937;
-                          -fx-background-radius: 8;
-                          -fx-border-radius: 8;" />
+                   styleClass="chat-input" />
 
         <!-- 上传文件按钮 -->
         <Button fx:id="fileUploadButton" text="📎"
-                style="-fx-background-color: #e74c3c;
-                       -fx-text-fill: white;
-                       -fx-font-size: 16px;
-                       -fx-padding: 12 16;
-                       -fx-cursor: hand;
-                       -fx-background-radius: 8;"
+                styleClass="icon-button"
                 onAction="#handleFileUpload" />
 
         <!-- 发送按钮 -->
         <Button fx:id="sendButton" text="发送" onAction="#sendMessage" defaultButton="true"
-                style="-fx-background-color: #3b82f6;
-                       -fx-text-fill: white;
-                       -fx-font-size: 14px;
-                       -fx-font-weight: 500;
-                       -fx-padding: 12 24;
-                       -fx-cursor: hand;
-                       -fx-background-radius: 8;" />
+                styleClass="primary-button" />
     </HBox>
 </VBox>
