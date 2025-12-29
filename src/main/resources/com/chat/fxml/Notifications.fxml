@@ -24,7 +24,8 @@
     </top>
 
     <center>
-        <VBox spacing="10">
+        <VBox spacing="10"
+              stylesheets="@../css/main.css">
             <!-- 工具栏 -->
             <HBox spacing="10" alignment="CENTER_RIGHT">
                 <Button fx:id="refreshButton" text="刷新"

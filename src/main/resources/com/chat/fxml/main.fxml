@@ -9,6 +9,7 @@
 <BorderPane fx:id="mainContainer" xmlns="http://javafx.com/javafx/11.0.1"
             xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.chat.control.MainControl"
+            stylesheets="@../css/main.css"
             prefWidth="800" prefHeight="600">
 
     <top>
@@ -24,8 +25,7 @@
                        style="-fx-border-radius: 20; -fx-background-radius: 20;"/>
 
             <!-- 用户名 -->
-            <Label fx:id="usernameLabel"
-                   style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+            <Label fx:id="usernameLabel" styleClass="username-label"/>
 
             <Region HBox.hgrow="ALWAYS" />
 
@@ -33,7 +33,7 @@
             <Button fx:id="refreshButton" text="刷新"
                     prefWidth="60" prefHeight="35"
                     onAction="#handleRefreshClick"
-                    style="-fx-background-color: #2196F3; -fx-text-fill: white;">
+                    styleClass="primary-button">
                 <tooltip>
                     <Tooltip text="刷新好友和群组列表 (F5)"/>
                 </tooltip>
@@ -41,11 +41,13 @@
 
             <!-- 通知按钮 -->
             <Button fx:id="notificationButton" text="通知"
-                    prefWidth="60" prefHeight="35"/>
+                    prefWidth="60" prefHeight="35"
+                    styleClass="soft-button"/>
 
             <!-- 主菜单 -->
             <MenuButton fx:id="mainMenu" text="菜单"
-                        prefWidth="60" prefHeight="35">
+                        prefWidth="60" prefHeight="35"
+                        styleClass="ghost-button">
                 <items>
                     <!-- 个人资料 -->
                     <MenuItem fx:id="profileMenuItem" text="个人资料"
@@ -68,30 +70,30 @@
     </top>
 
     <center>
-        <TabPane fx:id="mainTabPane" tabClosingPolicy="UNAVAILABLE">
+        <TabPane fx:id="mainTabPane" tabClosingPolicy="UNAVAILABLE" styleClass="pill-tabs">
             <Tab fx:id="messagesTab" text="消息">
                 <content>
-                    <ListView fx:id="messagesListView">
+                    <ListView fx:id="messagesListView" styleClass="list-view">
                         <placeholder>
-                            <Label text="暂无消息" />
+                            <Label text="暂无消息" styleClass="list-placeholder" />
                         </placeholder>
                     </ListView>
                 </content>
             </Tab>
             <Tab fx:id="contactsTab" text="联系人">
                 <content>
-                    <ListView fx:id="contactsListView">
+                    <ListView fx:id="contactsListView" styleClass="list-view">
                         <placeholder>
-                            <Label text="暂无联系人" />
+                            <Label text="暂无联系人" styleClass="list-placeholder" />
                         </placeholder>
                     </ListView>
                 </content>
             </Tab>
             <Tab fx:id="groupsTab" text="群聊">
                 <content>
-                    <ListView fx:id="groupsListView">
+                    <ListView fx:id="groupsListView" styleClass="list-view">
                         <placeholder>
-                            <Label text="暂无群聊" />
+                            <Label text="暂无群聊" styleClass="list-placeholder" />
                         </placeholder>
                     </ListView>
                 </content>

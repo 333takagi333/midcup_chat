@@ -10,7 +10,8 @@
 <VBox xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.chat.control.GroupDetailsControl" spacing="15"
       style="-fx-padding: 20; -fx-background-color: #ffffff;" fx:id="mainContainer"
-      minWidth="500" minHeight="650">
+      minWidth="500" minHeight="650"
+      stylesheets="@../css/main.css">
 
     <!-- 使用ScrollPane包装所有内容 -->
     <ScrollPane fitToWidth="true" style="-fx-background: transparent; -fx-background-color: transparent;">

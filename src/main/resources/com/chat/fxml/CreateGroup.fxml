@@ -6,7 +6,8 @@
 <BorderPane fx:id="mainContainer" xmlns="http://javafx.com/javafx/11.0.1"
             xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.chat.control.CreateGroupControl"
-            prefWidth="400" prefHeight="250">
+            prefWidth="400" prefHeight="250"
+            stylesheets="@../css/main.css">
 
     <padding>
         <Insets top="20" right="20" bottom="20" left="20"/>
