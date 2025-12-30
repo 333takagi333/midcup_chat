@@ -3,8 +3,6 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.image.*?>
-<?import javafx.scene.text.*?>
-<?import javafx.geometry.Insets?>
 
 <VBox xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.chat.control.ChatHistoryWindowControl" spacing="0"
@@ -54,13 +52,10 @@
                text="准备加载历史记录..." />
     </HBox>
 
-    <!-- 历史消息区域 -->
-    <TextArea fx:id="historyArea" VBox.vgrow="ALWAYS" editable="false" wrapText="true"
-              style="-fx-control-inner-background: #f8f9fa;
-                     -fx-font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
-                     -fx-font-size: 13px;
-                     -fx-border-color: transparent;
-                     -fx-padding: 15;" />
+    <!-- 历史消息区域 - 使用 ListView 以支持消息气泡 -->
+    <ListView fx:id="historyListView" VBox.vgrow="ALWAYS"
+              styleClass="list-view"
+              focusTraversable="false" />
 
     <!-- 底部状态栏 -->
     <HBox style="-fx-padding: 10 15; -fx-background-color: #eaf2fb;" alignment="CENTER">
