@@ -26,7 +26,8 @@
     <!-- 控制区域 -->
     <HBox spacing="12" styleClass="toolbar" alignment="CENTER_LEFT">
         <Label text="每次加载:" style="-fx-text-fill: #34495e; -fx-font-weight: bold;" />
-        <ComboBox fx:id="limitComboBox" prefWidth="100" styleClass="input-field" />
+        <ComboBox fx:id="limitComboBox" prefWidth="120"
+                  style="-fx-background-color: #f8fbff; -fx-border-color: #c7dbff; -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 0 10 0 10;" />
 
         <Region HBox.hgrow="ALWAYS" />
 
