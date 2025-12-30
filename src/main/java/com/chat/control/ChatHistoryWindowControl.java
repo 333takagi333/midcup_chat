@@ -4,6 +4,8 @@ import com.chat.network.SocketClient;
 import com.chat.service.HistoryService;
 import com.chat.protocol.ChatHistoryResponse;
 import com.chat.protocol.ChatHistoryResponse.HistoryMessageItem;
+import com.chat.protocol.ContentType;
+import com.chat.ui.DialogUtil;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -13,11 +15,18 @@ import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.net.URL;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.Base64;
+import java.util.List;
+import java.util.ResourceBundle;
+import java.util.Timer;
+import java.util.TimerTask;
 
 /**
  * 历史记录窗口控制器
@@ -49,7 +58,7 @@ public class ChatHistoryWindowControl implements Initializable, HistoryService.H
     private int totalMessagesLoaded = 0;
 
     // 存储所有历史消息
-    private final List<HistoryMessageItem> allHistoryMessages = new ArrayList<>();
+    private final List<HistoryMessageItem> allHistoryMessages = new java.util.ArrayList<>();
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
@@ -301,34 +310,146 @@ public class ChatHistoryWindowControl implements Initializable, HistoryService.H
                 setText(null);
                 setGraphic(null);
             } else {
-                messageLabel.setText(item.getContent());
+                // Check if this is a file message
+                String contentType = item.getContentType();
+                boolean isFile = ContentType.FILE.equalsIgnoreCase(contentType);
+
                 String time = "";
                 try {
-                    java.util.Date messageDate = historyService.parseDbDateTime(item.getTimestamp());
-                    time = timeFormat.format(messageDate);
+                    time = historyService.formatDbDateTimeForDisplay(item.getTimestamp());
                 } catch (Exception e) {
                     // ignore
                 }
-                timeLabel.setText(time);
 
-                container.getChildren().clear();
+                if (isFile) {
+                    // Build a file message bubble
+                    HBox fileContainer = new HBox();
+                    fileContainer.setPadding(new Insets(6, 10, 6, 10));
+                    fileContainer.setMaxWidth(Double.MAX_VALUE);
 
-                boolean isMine = (item.getSenderId() != null && item.getSenderId().equals(userId));
-                if (isMine) {
-                    // 右侧气泡
-                    messageLabel.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-background-radius: 12; -fx-font-size: 13px; -fx-padding: 8 12 8 12;");
-                    contentBox.setAlignment(Pos.CENTER_RIGHT);
-                    container.setAlignment(Pos.CENTER_RIGHT);
-                    container.getChildren().addAll(spacer, contentBox);
+                    boolean isMine = (item.getSenderId() != null && item.getSenderId().equals(userId));
+                    if (isMine) {
+                        fileContainer.setAlignment(Pos.CENTER_RIGHT);
+                    } else {
+                        fileContainer.setAlignment(Pos.CENTER_LEFT);
+                    }
+
+                    // File info box
+                    HBox fileBox = new HBox(10);
+                    fileBox.setPadding(new Insets(10));
+                    fileBox.setMaxWidth(520);
+                    if (isMine) {
+                        fileBox.setStyle("-fx-background-color: #3498db; -fx-background-radius: 12; -fx-text-fill: white;");
+                    } else {
+                        fileBox.setStyle("-fx-background-color: #f1f0f0; -fx-background-radius: 12; -fx-text-fill: #222;");
+                    }
+
+                    Label icon = new Label("📎");
+                    icon.setStyle("-fx-font-size: 20px;");
+
+                    VBox info = new VBox(4);
+                    Label name = new Label(item.getFileName() != null ? item.getFileName() : "(未知文件)");
+                    name.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;" + (isMine ? "-fx-text-fill: white;" : ""));
+                    Label sizeLabel = new Label(item.getFileSize() != null ? formatFileSize(item.getFileSize()) : "");
+                    sizeLabel.setStyle((isMine ? "-fx-text-fill: white;" : "-fx-text-fill: #666;") + "-fx-font-size: 11px;");
+                    Label meta = new Label(time + (item.getSenderId() != null ? ("  •  " + (item.getSenderId().equals(userId) ? "我" : "用户" + item.getSenderId())) : ""));
+                    meta.setStyle((isMine ? "-fx-text-fill: rgba(255,255,255,0.9);" : "-fx-text-fill: #999;") + "-fx-font-size: 10px;");
+                    info.getChildren().addAll(name, sizeLabel, meta);
+
+                    // Download/save button
+                    Button saveBtn = new Button(isMine ? "📥 保存" : "📥 下载");
+                    saveBtn.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 6 12; -fx-background-radius: 6;");
+                    saveBtn.setOnAction(ev -> {
+                        String fileUrl = item.getFileUrl();
+                        if (fileUrl == null || fileUrl.trim().isEmpty()) {
+                            DialogUtil.showError(historyListView.getScene().getWindow(), "无法下载文件：文件链接缺失");
+                            return;
+                        }
+
+                        // If fileUrl looks like base64 data, decode and save
+                        String base64 = fileUrl;
+                        int commaIndex = base64.indexOf(",base64,");
+                        if (commaIndex != -1) {
+                            base64 = base64.substring(commaIndex + 8);
+                        }
+
+                        try {
+                            byte[] data = Base64.getDecoder().decode(base64);
+
+                            FileChooser fileChooser = new FileChooser();
+                            fileChooser.setTitle("保存文件");
+                            fileChooser.setInitialFileName(item.getFileName() != null ? item.getFileName() : "download.bin");
+                            File target = fileChooser.showSaveDialog(historyListView.getScene().getWindow());
+                            if (target == null) {
+                                return;
+                            }
+
+                            try (FileOutputStream fos = new FileOutputStream(target)) {
+                                fos.write(data);
+                            }
+
+                            DialogUtil.showInfo(historyListView.getScene().getWindow(), "文件已保存：" + target.getAbsolutePath());
+                        } catch (IllegalArgumentException iae) {
+                            // not base64 or failed to decode
+                            DialogUtil.showError(historyListView.getScene().getWindow(), "文件数据无效或无法解析。无法保存。");
+                        } catch (Exception ex) {
+                            ex.printStackTrace();
+                            DialogUtil.showError(historyListView.getScene().getWindow(), "保存文件失败: " + ex.getMessage());
+                        }
+                    });
+
+                    Region spacerLocal = new Region();
+                    HBox.setHgrow(spacerLocal, Priority.ALWAYS);
+
+                    fileBox.getChildren().addAll(icon, info, spacerLocal, saveBtn);
+
+                    if (isMine) {
+                        fileContainer.getChildren().addAll(spacer, fileBox);
+                    } else {
+                        fileContainer.getChildren().addAll(fileBox, spacer);
+                    }
+
+                    setGraphic(fileContainer);
+
                 } else {
-                    // 左侧气泡
-                    messageLabel.setStyle("-fx-background-color: #f1f0f0; -fx-text-fill: #222; -fx-background-radius: 12; -fx-font-size: 13px; -fx-padding: 8 12 8 12;");
-                    contentBox.setAlignment(Pos.CENTER_LEFT);
-                    container.setAlignment(Pos.CENTER_LEFT);
-                    container.getChildren().addAll(contentBox, spacer);
-                }
+                    // text message rendering (existing behavior)
+                    messageLabel.setText(item.getContent());
+                    timeLabel.setText(time);
 
-                setGraphic(container);
+                    container.getChildren().clear();
+
+                    boolean isMine = (item.getSenderId() != null && item.getSenderId().equals(userId));
+                    if (isMine) {
+                        // 右侧气泡
+                        messageLabel.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-background-radius: 12; -fx-font-size: 13px; -fx-padding: 8 12 8 12;");
+                        contentBox.setAlignment(Pos.CENTER_RIGHT);
+                        container.setAlignment(Pos.CENTER_RIGHT);
+                        container.getChildren().addAll(spacer, contentBox);
+                    } else {
+                        // 左侧气泡
+                        messageLabel.setStyle("-fx-background-color: #f1f0f0; -fx-text-fill: #222; -fx-background-radius: 12; -fx-font-size: 13px; -fx-padding: 8 12 8 12;");
+                        contentBox.setAlignment(Pos.CENTER_LEFT);
+                        container.setAlignment(Pos.CENTER_LEFT);
+                        container.getChildren().addAll(contentBox, spacer);
+                    }
+
+                    setGraphic(container);
+                }
+            }
+        }
+
+        // helper to format file size similar to FileMessageHelper
+        private String formatFileSize(Long size) {
+            if (size == null) return "";
+            long s = size;
+            if (s < 1024) {
+                return s + " B";
+            } else if (s < 1024 * 1024) {
+                return String.format("%.1f KB", s / 1024.0);
+            } else if (s < 1024L * 1024L * 1024L) {
+                return String.format("%.1f MB", s / (1024.0 * 1024.0));
+            } else {
+                return String.format("%.2f GB", s / (1024.0 * 1024.0 * 1024.0));
             }
         }
     }
