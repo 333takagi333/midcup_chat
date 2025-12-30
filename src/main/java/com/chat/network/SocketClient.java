@@ -402,14 +402,14 @@ public class SocketClient {
     /**
      * 获取服务器地址（常量）
      */
-    public String getServerAddress() {
+    public static String getServerAddress() {
         return SERVER_ADDRESS;
     }
 
     /**
      * 获取服务器端口（常量）
      */
-    public int getServerPort() {
+    public static int getServerPort() {
         return SERVER_PORT;
     }
 }

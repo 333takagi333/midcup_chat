@@ -31,7 +31,7 @@ public class ChatService {
     private final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm");
     // 数据库datetime格式
     private final SimpleDateFormat dbDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-    private String serverBaseUrl = "http://localhost:8080/";
+    private String serverBaseUrl = "http://"+SocketClient.getServerAddress()+":12355/";
 
     // 可以设置服务器地址
     public void setServerBaseUrl(String serverBaseUrl) {

@@ -242,7 +242,7 @@ public class GroupDetailsService {
                     fullUrl = downloadUrl;
                 } else {
                     // 添加服务器地址前缀
-                    fullUrl = "http://localhost:8080/" +
+                    fullUrl = "http://"+SocketClient.getServerAddress()+":12355/" +
                             (downloadUrl.startsWith("/") ? downloadUrl.substring(1) : downloadUrl);
                 }
 
