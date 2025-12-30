@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import com.chat.ui.CustomButton?>
-<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Hyperlink?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.PasswordField?>
 <?import javafx.scene.control.TextField?>
+<?import javafx.geometry.Insets?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.VBox?>
 
+<?import java.lang.String?>
 <VBox alignment="CENTER" spacing="16" styleClass="login-root"
       stylesheets="@../css/main.css"
       xmlns="http://javafx.com/javafx/8.0.171" xmlns:fx="http://javafx.com/fxml/1"
@@ -46,8 +47,9 @@
             </HBox>
 
             <!-- 登录按钮 -->
-            <CustomButton fx:id="loginButton" text="登录" onAction="#login"
-                          prefWidth="280" prefHeight="40" styleClass="primary-button"/>
+            <Button fx:id="loginButton" text="登录" onAction="#login"
+                    prefWidth="280" prefHeight="40"
+                    styleClass="primary-button"/>
         </VBox>
     </children>
 </VBox>

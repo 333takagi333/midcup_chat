@@ -1,32 +1,3 @@
-/*!* Main UI styles moved from FXML/inline styles *!*/
-/*.top-bar {*/
-/*    -fx-background-color: #2c3e50;*/
-/*    -fx-padding: 10;*/
-/*    -fx-alignment: center-left;*/
-/*    -fx-spacing: 15;*/
-/*}*/
-
-/*.username-label {*/
-/*    -fx-text-fill: white;*/
-/*    -fx-font-size: 16px;*/
-/*    -fx-font-weight: bold;*/
-/*}*/
-
-/*.notification-button {*/
-/*    -fx-background-color: #3498db;*/
-/*    -fx-text-fill: white;*/
-/*}*/
-
-/*.settings-menu {*/
-/*    -fx-background-color: #34495e;*/
-/*    -fx-text-fill: white;*/
-/*}*/
-
-/*.list-placeholder {*/
-/*    -fx-text-fill: #999999;*/
-/*}*/
-
-/* Global base */
 .root {
     -fx-font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
     -fx-text-fill: #0f172a;
@@ -106,22 +77,22 @@
 
 /* Buttons */
 .primary-button {
-    -fx-background-color: linear-gradient(to right, #5ba8ff, #3f8bfa);
+    -fx-background-color: linear-gradient(to right, #3f8bfa, #1d4ed8); /* 蓝色渐变 */
     -fx-text-fill: white;
     -fx-font-size: 14px;
     -fx-font-weight: 600;
     -fx-background-radius: 10;
     -fx-cursor: hand;
     -fx-padding: 8 16;
-    -fx-border-color: transparent;
+    -fx-border-color: transparent; /* 确保没有边框 */
 }
 
 .primary-button:hover {
-    -fx-background-color: linear-gradient(to right, #4b9dff, #357ff3);
+    -fx-background-color: linear-gradient(to right, #2563eb, #1e40af); /* 深蓝色 */
 }
 
 .primary-button:pressed {
-    -fx-background-color: #357ff3;
+    -fx-background-color: #1e40af; /* 按压时深蓝色 */
 }
 
 .soft-button {
@@ -193,10 +164,12 @@
 }
 
 .header-button {
-    -fx-background-color: rgba(255, 255, 255, 0.18);
+    -fx-background-color: linear-gradient(to right, #3f8bfa, #5ba8ff);
     -fx-text-fill: white;
     -fx-font-size: 13px;
-    -fx-padding: 6 16;
+    -fx-padding: 6 24;          /* 增加水平内边距 */
+    -fx-min-width: 120px;       /* 增加最小宽度 */
+    -fx-pref-width: 120px;      /* 增加首选宽度 */
     -fx-background-radius: 8;
     -fx-border-color: rgba(255, 255, 255, 0.35);
     -fx-border-radius: 8;
