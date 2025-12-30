@@ -7,6 +7,7 @@
 <BorderPane fx:id="mainContainer" xmlns="http://javafx.com/javafx/11.0.1"
             xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.chat.control.NotificationControl"
+            stylesheets="@../css/main.css"
             prefWidth="600" prefHeight="500">
 
     <padding>
@@ -14,12 +15,12 @@
     </padding>
 
     <top>
-        <HBox spacing="10" alignment="CENTER_LEFT">
+        <HBox spacing="10" alignment="CENTER_LEFT" styleClass="top-bar">
             <Label text="通知中心"
-                   style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+                   styleClass="app-title"/>
             <Region HBox.hgrow="ALWAYS"/>
             <Label fx:id="notificationCountLabel"
-                   style="-fx-font-size: 14px; -fx-text-fill: #2196F3;"/>
+                   styleClass="label-muted"/>
         </HBox>
     </top>
 
@@ -28,14 +29,14 @@
             <!-- 工具栏 -->
             <HBox spacing="10" alignment="CENTER_RIGHT">
                 <Button fx:id="refreshButton" text="刷新"
-                        style="-fx-background-color: #4CAF50; -fx-text-fill: white;"/>
+                        styleClass="primary-button"/>
                 <Button fx:id="clearAllButton" text="清空所有"
-                        style="-fx-background-color: #f44336; -fx-text-fill: white;"/>
+                        styleClass="ghost-button"/>
             </HBox>
 
             <!-- 通知表格 -->
             <TableView fx:id="notificationTable"
-                       style="-fx-background-color: white;">
+                       style="-fx-background-color: white; -fx-border-color: #d7e6ff; -fx-border-radius: 12; -fx-background-radius: 12;">
                 <columns>
                     <TableColumn fx:id="fromUserColumn" text="发起人"
                                  prefWidth="150"/>
@@ -46,7 +47,7 @@
                 </columns>
                 <placeholder>
                     <Label text="暂无通知"
-                           style="-fx-font-size: 14px; -fx-text-fill: #999;"/>
+                           styleClass="list-placeholder"/>
                 </placeholder>
             </TableView>
         </VBox>
@@ -55,7 +56,7 @@
     <bottom>
         <HBox spacing="10" alignment="CENTER">
             <Label text="提示：双击通知可以查看详情和处理请求"
-                   style="-fx-font-size: 12px; -fx-text-fill: #666;"/>
+                   styleClass="label-muted"/>
         </HBox>
     </bottom>
 </BorderPane>

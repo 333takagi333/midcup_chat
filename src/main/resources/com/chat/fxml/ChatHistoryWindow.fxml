@@ -8,41 +8,39 @@
 
 <VBox xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.chat.control.ChatHistoryWindowControl" spacing="0"
-      style="-fx-background-color: #ffffff;">
+      styleClass="dialog-card"
+      stylesheets="@../css/main.css">
 
     <!-- 标题栏 -->
-    <HBox style="-fx-background-color: #2c3e50; -fx-padding: 12 15;" spacing="12" alignment="CENTER_LEFT">
+    <HBox styleClass="chat-header" spacing="12" alignment="CENTER_LEFT">
         <!-- 历史图标 -->
         <Label text="📜" style="-fx-font-size: 24px; -fx-text-fill: white; -fx-padding: 0 5 0 0;" />
 
         <!-- 标题 -->
-        <Label fx:id="titleLabel" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: white;"
+        <Label fx:id="titleLabel" styleClass="header-title"
                text="历史记录" />
 
         <Region HBox.hgrow="ALWAYS" />
 
         <!-- 状态标签 -->
-        <Label fx:id="statusLabel" style="-fx-font-size: 12px; -fx-text-fill: #95a5a6; -fx-padding: 0 10;" />
+        <Label fx:id="statusLabel" styleClass="header-title" style="-fx-font-size: 12px; -fx-opacity: 0.9;" />
     </HBox>
 
     <!-- 控制区域 -->
-    <HBox spacing="12" style="-fx-padding: 15; -fx-background-color: #ecf0f1;" alignment="CENTER_LEFT">
+    <HBox spacing="12" styleClass="toolbar" alignment="CENTER_LEFT">
         <Label text="每次加载:" style="-fx-text-fill: #34495e; -fx-font-weight: bold;" />
-        <ComboBox fx:id="limitComboBox" prefWidth="80"
-                  style="-fx-background-color: white; -fx-border-color: #bdc3c7; -fx-border-radius: 3;" />
+        <ComboBox fx:id="limitComboBox" prefWidth="100" styleClass="input-field" />
 
         <Region HBox.hgrow="ALWAYS" />
 
         <!-- 加载按钮 -->
         <Button fx:id="loadMoreButton" text="加载历史记录"
-                style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold;
-                       -fx-background-radius: 5; -fx-padding: 8 20; -fx-font-size: 12px;"
+                styleClass="primary-button"
                 onAction="#loadHistoryMessages" />
 
         <!-- 关闭按钮 -->
         <Button fx:id="closeButton" text="关闭"
-                style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-weight: bold;
-                       -fx-background-radius: 5; -fx-padding: 8 20; -fx-font-size: 12px;"
+                styleClass="ghost-button"
                 onAction="#closeWindow" />
     </HBox>
 
@@ -52,7 +50,7 @@
     <!-- 信息区域 -->
     <HBox style="-fx-padding: 8 15; -fx-background-color: #f8f9fa; -fx-border-color: #ddd; -fx-border-width: 0 0 1 0;"
           alignment="CENTER_LEFT">
-        <Label fx:id="infoLabel" style="-fx-text-fill: #7f8c8d; -fx-font-size: 12px;"
+        <Label fx:id="infoLabel" styleClass="label-muted"
                text="准备加载历史记录..." />
     </HBox>
 
@@ -65,8 +63,8 @@
                      -fx-padding: 15;" />
 
     <!-- 底部状态栏 -->
-    <HBox style="-fx-padding: 10 15; -fx-background-color: #34495e;" alignment="CENTER">
-        <Label text="历史记录查看器" style="-fx-text-fill: #ecf0f1; -fx-font-size: 11px;" />
+    <HBox style="-fx-padding: 10 15; -fx-background-color: #eaf2fb;" alignment="CENTER">
+        <Label text="历史记录查看器" styleClass="label-muted" />
     </HBox>
 
 </VBox>
