@@ -10,6 +10,9 @@ import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*;
+import javafx.scene.layout.*;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.stage.Stage;
 
 import java.net.URL;
@@ -24,7 +27,8 @@ public class ChatHistoryWindowControl implements Initializable, HistoryService.H
     @FXML private Label titleLabel;
     @FXML private Label statusLabel;
     @FXML private Label infoLabel;
-    @FXML private TextArea historyArea;
+    // replaced TextArea with ListView for bubble rendering
+    @FXML private ListView<HistoryMessageItem> historyListView;
     @FXML private ComboBox<Integer> limitComboBox;
     @FXML private Button loadMoreButton;
     @FXML private Button closeButton;
@@ -38,7 +42,6 @@ public class ChatHistoryWindowControl implements Initializable, HistoryService.H
     private HistoryService historyService;
 
     private final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm");
-    private final SimpleDateFormat dayFormat = new SimpleDateFormat("yyyy-MM-dd");
 
     // 分页相关
     private Long earliestTimestamp = null;
@@ -58,15 +61,21 @@ public class ChatHistoryWindowControl implements Initializable, HistoryService.H
         limitComboBox.setItems(limits);
         limitComboBox.setValue(50);
 
-        // 设置文本区域不可编辑，但可以选择复制
-        historyArea.setEditable(false);
-        historyArea.setWrapText(true);
+        // 设置 ListView 初始状态
+        historyListView.setPlaceholder(new Label("正在初始化历史记录窗口..."));
+        historyListView.setFocusTraversable(false);
+
+        // 使用自定义 cell 渲染消息气泡
+        historyListView.setCellFactory(list -> new HistoryCell());
 
         // 设置按钮样式
         setupButtonStyles();
 
         // 显示初始化提示
-        historyArea.setText("正在初始化历史记录窗口...");
+        historyListView.getItems().clear();
+
+        // 将加载按钮默认文本保留
+        loadMoreButton.setText("加载历史记录");
     }
 
     private void setupButtonStyles() {
@@ -93,8 +102,9 @@ public class ChatHistoryWindowControl implements Initializable, HistoryService.H
         // 禁用加载更多按钮，直到第一次加载完成
         loadMoreButton.setDisable(true);
 
-        // 清空历史区域，显示加载提示
-        historyArea.setText("正在加载与 " + targetName + " 的历史记录...");
+        // 清空历史区域，显示加载提示（通过 placeholder）
+        historyListView.getItems().clear();
+        historyListView.setPlaceholder(new Label("正在加载与 " + targetName + " 的历史记录..."));
 
         // 开始加载历史记录（延迟一点，确保UI完全加载）
         new Timer().schedule(new TimerTask() {
@@ -139,16 +149,6 @@ public class ChatHistoryWindowControl implements Initializable, HistoryService.H
         );
     }
 
-    /**
-     * 加载更多历史消息
-     */
-    @FXML
-    private void loadMoreHistory() {
-        if (earliestTimestamp != null) {
-            loadHistoryMessages();
-        }
-    }
-
     @Override
     public void onHistoryLoaded(ChatHistoryResponse response, String error) {
         Platform.runLater(() -> {
@@ -168,7 +168,8 @@ public class ChatHistoryWindowControl implements Initializable, HistoryService.H
                 loadMoreButton.setDisable(true);
 
                 if (totalMessagesLoaded == 0) {
-                    historyArea.setText("暂无历史聊天记录");
+                    historyListView.getItems().clear();
+                    historyListView.setPlaceholder(new Label("暂无历史聊天记录"));
                     infoLabel.setText("共 0 条记录");
                 } else {
                     infoLabel.setText("共 " + totalMessagesLoaded + " 条记录，已加载全部");
@@ -217,7 +218,8 @@ public class ChatHistoryWindowControl implements Initializable, HistoryService.H
      */
     private void displayAllHistoryMessages() {
         if (allHistoryMessages.isEmpty()) {
-            historyArea.setText("暂无历史聊天记录");
+            historyListView.getItems().clear();
+            historyListView.setPlaceholder(new Label("暂无历史聊天记录"));
             return;
         }
 
@@ -228,51 +230,26 @@ public class ChatHistoryWindowControl implements Initializable, HistoryService.H
             return timeA.compareTo(timeB);
         });
 
-        StringBuilder sb = new StringBuilder();
-        String lastDay = "";
+        ObservableList<HistoryMessageItem> items = FXCollections.observableArrayList();
 
-        for (HistoryMessageItem item : allHistoryMessages) {
-            try {
-                // 解析数据库时间
-                java.util.Date messageDate = historyService.parseDbDateTime(item.getTimestamp());
+        // 我们保留原有按日分隔的逻辑，但将日期分隔作为占位消息不可行（类型不同），
+        // 所以这里只把消息按顺序放入 ListView，ListCell 负责显示时间与内容
+        items.addAll(allHistoryMessages);
 
-                // 检查日期变化
-                String currentDay = dayFormat.format(messageDate);
-                if (!currentDay.equals(lastDay)) {
-                    if (!lastDay.isEmpty()) {
-                        sb.append("\n");
-                    }
-                    sb.append("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
-                    sb.append("                 ").append(currentDay).append("\n");
-                    sb.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n");
-                    lastDay = currentDay;
-                }
-
-                // 格式化显示
-                String time = timeFormat.format(messageDate);
-                String senderName = item.getSenderId().equals(userId) ? "我" :
-                        (chatType.equals("private") ? targetName : "用户" + item.getSenderId());
-
-                sb.append("[").append(time).append("] ").append(senderName).append(": ")
-                        .append(item.getContent()).append("\n");
-
-            } catch (Exception e) {
-                System.err.println("格式化历史消息失败: " + e.getMessage());
-            }
-        }
-
-        historyArea.setText(sb.toString());
+        historyListView.setItems(items);
 
         // 滚动到底部（最新消息）
-        historyArea.selectPositionCaret(historyArea.getLength());
-        historyArea.deselect();
+        if (!items.isEmpty()) {
+            historyListView.scrollTo(items.size() - 1);
+        }
     }
 
     /**
      * 显示错误信息
      */
     private void showError(String message) {
-        historyArea.setText("错误: " + message + "\n\n请检查网络连接或稍后重试。");
+        historyListView.getItems().clear();
+        historyListView.setPlaceholder(new Label("错误: " + message + "\n\n请检查网络连接或稍后重试。"));
         statusLabel.setText("加载失败");
     }
 
@@ -281,9 +258,78 @@ public class ChatHistoryWindowControl implements Initializable, HistoryService.H
      */
     @FXML
     private void closeWindow() {
-        Stage stage = (Stage) historyArea.getScene().getWindow();
+        Stage stage = null;
+        if (closeButton != null && closeButton.getScene() != null) {
+            stage = (Stage) closeButton.getScene().getWindow();
+        } else if (historyListView != null && historyListView.getScene() != null) {
+            stage = (Stage) historyListView.getScene().getWindow();
+        }
         if (stage != null) {
             stage.close();
+        }
+    }
+
+    /**
+     * 自定义 ListCell：消息气泡，自己消息靠右，收到的消息靠左
+     */
+    private class HistoryCell extends ListCell<HistoryMessageItem> {
+        private final HBox container = new HBox();
+        private final VBox contentBox = new VBox();
+        private final Label messageLabel = new Label();
+        private final Label timeLabel = new Label();
+        private final Region spacer = new Region();
+
+        public HistoryCell() {
+            super();
+            messageLabel.setWrapText(true);
+            messageLabel.setMaxWidth(420);
+            messageLabel.setPadding(new Insets(8, 12, 8, 12));
+            messageLabel.setStyle("-fx-background-radius: 10; -fx-font-size: 13px;");
+
+            timeLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #666; -fx-padding: 2 6 0 6;");
+
+            contentBox.getChildren().addAll(messageLabel, timeLabel);
+            contentBox.setAlignment(Pos.CENTER_LEFT);
+            HBox.setHgrow(spacer, Priority.ALWAYS);
+            container.setPadding(new Insets(6, 10, 6, 10));
+        }
+
+        @Override
+        protected void updateItem(HistoryMessageItem item, boolean empty) {
+            super.updateItem(item, empty);
+            if (empty || item == null) {
+                setText(null);
+                setGraphic(null);
+            } else {
+                messageLabel.setText(item.getContent());
+                String time = "";
+                try {
+                    java.util.Date messageDate = historyService.parseDbDateTime(item.getTimestamp());
+                    time = timeFormat.format(messageDate);
+                } catch (Exception e) {
+                    // ignore
+                }
+                timeLabel.setText(time);
+
+                container.getChildren().clear();
+
+                boolean isMine = (item.getSenderId() != null && item.getSenderId().equals(userId));
+                if (isMine) {
+                    // 右侧气泡
+                    messageLabel.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-background-radius: 12; -fx-font-size: 13px; -fx-padding: 8 12 8 12;");
+                    contentBox.setAlignment(Pos.CENTER_RIGHT);
+                    container.setAlignment(Pos.CENTER_RIGHT);
+                    container.getChildren().addAll(spacer, contentBox);
+                } else {
+                    // 左侧气泡
+                    messageLabel.setStyle("-fx-background-color: #f1f0f0; -fx-text-fill: #222; -fx-background-radius: 12; -fx-font-size: 13px; -fx-padding: 8 12 8 12;");
+                    contentBox.setAlignment(Pos.CENTER_LEFT);
+                    container.setAlignment(Pos.CENTER_LEFT);
+                    container.getChildren().addAll(contentBox, spacer);
+                }
+
+                setGraphic(container);
+            }
         }
     }
 
