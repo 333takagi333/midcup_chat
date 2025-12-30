@@ -366,16 +366,42 @@ public class ChatHistoryWindowControl implements Initializable, HistoryService.H
                             return;
                         }
 
-                        // If fileUrl looks like base64 data, decode and save
-                        String base64 = fileUrl;
-                        int commaIndex = base64.indexOf(",base64,");
-                        if (commaIndex != -1) {
-                            base64 = base64.substring(commaIndex + 8);
-                        }
+                        // If fileUrl looks like base64 data (data URI or contains base64 marker), decode and save locally
+                        boolean looksLikeDataUri = fileUrl.startsWith("data:") || fileUrl.contains(",base64,");
 
-                        try {
-                            byte[] data = Base64.getDecoder().decode(base64);
+                        if (looksLikeDataUri) {
+                            String base64 = fileUrl;
+                            int commaIndex = base64.indexOf(",base64,");
+                            if (commaIndex != -1) {
+                                base64 = base64.substring(commaIndex + 8);
+                            }
 
+                            try {
+                                byte[] data = Base64.getDecoder().decode(base64);
+
+                                FileChooser fileChooser = new FileChooser();
+                                fileChooser.setTitle("保存文件");
+                                fileChooser.setInitialFileName(item.getFileName() != null ? item.getFileName() : "download.bin");
+                                File target = fileChooser.showSaveDialog(historyListView.getScene().getWindow());
+                                if (target == null) {
+                                    return;
+                                }
+
+                                try (FileOutputStream fos = new FileOutputStream(target)) {
+                                    fos.write(data);
+                                }
+
+                                DialogUtil.showInfo(historyListView.getScene().getWindow(), "文件已保存：" + target.getAbsolutePath());
+                            } catch (IllegalArgumentException iae) {
+                                // not base64 or failed to decode
+                                DialogUtil.showError(historyListView.getScene().getWindow(), "文件数据无效或无法解析。无法保存。");
+                            } catch (Exception ex) {
+                                ex.printStackTrace();
+                                DialogUtil.showError(historyListView.getScene().getWindow(), "保存文件失败: " + ex.getMessage());
+                            }
+
+                        } else {
+                            // Treat fileUrl as a download path (absolute or relative on server). Download via HTTP.
                             FileChooser fileChooser = new FileChooser();
                             fileChooser.setTitle("保存文件");
                             fileChooser.setInitialFileName(item.getFileName() != null ? item.getFileName() : "download.bin");
@@ -384,17 +410,52 @@ public class ChatHistoryWindowControl implements Initializable, HistoryService.H
                                 return;
                             }
 
-                            try (FileOutputStream fos = new FileOutputStream(target)) {
-                                fos.write(data);
-                            }
+                            // Download in background thread
+                            new Thread(() -> {
+                                try {
+                                    Platform.runLater(() -> DialogUtil.showInfo(historyListView.getScene().getWindow(), "正在下载文件: " + (item.getFileName() != null ? item.getFileName() : "文件")));
 
-                            DialogUtil.showInfo(historyListView.getScene().getWindow(), "文件已保存：" + target.getAbsolutePath());
-                        } catch (IllegalArgumentException iae) {
-                            // not base64 or failed to decode
-                            DialogUtil.showError(historyListView.getScene().getWindow(), "文件数据无效或无法解析。无法保存。");
-                        } catch (Exception ex) {
-                            ex.printStackTrace();
-                            DialogUtil.showError(historyListView.getScene().getWindow(), "保存文件失败: " + ex.getMessage());
+                                    // Build full URL using server address from SocketClient
+                                    String serverBase = "http://" + SocketClient.getServerAddress() + ":12355/";
+                                    String downloadPath = fileUrl;
+                                    if (downloadPath.startsWith("/")) {
+                                        downloadPath = downloadPath.substring(1);
+                                    }
+                                    String fullUrl = downloadPath.startsWith("http://") || downloadPath.startsWith("https://") ? downloadPath : (serverBase + downloadPath);
+
+                                    System.out.println("[ChatHistoryWindow] 下载URL: " + fullUrl);
+
+                                    java.net.URL url = new java.net.URL(fullUrl);
+                                    java.net.HttpURLConnection connection = (java.net.HttpURLConnection) url.openConnection();
+                                    connection.setRequestMethod("GET");
+                                    connection.setConnectTimeout(30000);
+                                    connection.setReadTimeout(30000);
+
+                                    int responseCode = connection.getResponseCode();
+                                    System.out.println("[ChatHistoryWindow] 服务器响应码: " + responseCode);
+                                    if (responseCode != 200) {
+                                        Platform.runLater(() -> DialogUtil.showError(historyListView.getScene().getWindow(), "服务器返回错误码: " + responseCode));
+                                        connection.disconnect();
+                                        return;
+                                    }
+
+                                    try (java.io.InputStream in = connection.getInputStream(); java.io.FileOutputStream fos = new java.io.FileOutputStream(target)) {
+                                        byte[] buffer = new byte[8192];
+                                        int len;
+                                        while ((len = in.read(buffer)) != -1) {
+                                            fos.write(buffer, 0, len);
+                                        }
+                                    }
+
+                                    connection.disconnect();
+
+                                    Platform.runLater(() -> DialogUtil.showInfo(historyListView.getScene().getWindow(), "文件已保存：" + target.getAbsolutePath()));
+
+                                } catch (Exception ex) {
+                                    ex.printStackTrace();
+                                    Platform.runLater(() -> DialogUtil.showError(historyListView.getScene().getWindow(), ex.getMessage()));
+                                }
+                            }).start();
                         }
                     });
 
