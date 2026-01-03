@@ -203,6 +203,11 @@ public class MainControl implements Initializable {
                         contactsListView.refresh();
                         groupsListView.refresh();
 
+                        // 刷新用户头像和用户名（修改）
+                        if (userId != null && !userId.isEmpty()) {
+                            refreshUserProfile(); // 修改方法名
+                        }
+
                         showRefreshStatus("刷新完成!");
                         System.out.println("[MainControl] 刷新成功");
                     } else {
@@ -219,6 +224,69 @@ public class MainControl implements Initializable {
                     DialogHelper.showError(mainContainer.getScene().getWindow(), "刷新失败: " + e.getMessage());
                     System.err.println("[MainControl] 刷新数据失败: " + e.getMessage());
                 });
+            }
+        }).start();
+    }
+    /**
+     * 刷新当前用户的头像和用户名
+     */
+    private void refreshUserProfile() {
+        if (userId == null || userId.isEmpty() || !isConnected()) {
+            return;
+        }
+
+        new Thread(() -> {
+            try {
+                System.out.println("[MainControl] 开始刷新用户信息...");
+
+                // 重新初始化UserProfileService以确保使用最新的连接
+                userProfileService = new UserProfileService(socketClient);
+
+                Long userIdLong = Long.parseLong(userId);
+                UserInfoResponse userInfo = userProfileService.loadUserInfo(userIdLong);
+
+                Platform.runLater(() -> {
+                    if (userInfo != null && userInfo.isSuccess()) {
+                        // 刷新用户名
+                        if (userInfo.getUsername() != null && !userInfo.getUsername().trim().isEmpty()) {
+                            String newUsername = userInfo.getUsername();
+                            System.out.println("[MainControl] 用户名刷新: " + this.username + " -> " + newUsername);
+                            this.username = newUsername;
+
+                            if (usernameLabel != null) {
+                                usernameLabel.setText(newUsername);
+                            }
+
+                        }
+
+                        // 刷新头像
+                        if (userInfo.getAvatarUrl() != null && !userInfo.getAvatarUrl().trim().isEmpty()) {
+                            String avatarUrl = userInfo.getAvatarUrl();
+                            System.out.println("[MainControl] 头像刷新: " + avatarUrl);
+
+                            if (avatarImage != null) {
+                                AvatarHelper.loadAvatar(avatarImage, avatarUrl, false, 40);
+                            }
+                        } else {
+                            // 如果没有头像URL，设置默认头像
+                            if (avatarImage != null) {
+                                AvatarHelper.setDefaultAvatar(avatarImage, false, 40);
+                            }
+                        }
+
+                        System.out.println("[MainControl] 用户信息刷新完成");
+
+                    } else {
+                        System.err.println("[MainControl] 用户信息刷新失败，保持当前信息");
+                        // 可以在这里添加失败提示，例如闪烁用户名标签
+                    }
+                });
+
+            } catch (NumberFormatException e) {
+                System.err.println("[MainControl] 用户ID格式错误: " + e.getMessage());
+            } catch (Exception e) {
+                System.err.println("[MainControl] 刷新用户信息异常: " + e.getMessage());
+                e.printStackTrace();
             }
         }).start();
     }
