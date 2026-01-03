@@ -26,12 +26,22 @@ public class ChatService {
     private final JsonParser jsonParser = new JsonParser();
     private final MessageBroadcaster broadcaster = MessageBroadcaster.getInstance();
     private final ChatSessionManager sessionManager = ChatSessionManager.getInstance();
+    private FriendService friendService;
+    private GroupService groupService;
 
     // 时间格式化器
     private final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm");
     // 数据库datetime格式
     private final SimpleDateFormat dbDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
     private String serverBaseUrl = "http://"+SocketClient.getServerAddress()+":12355/";
+
+    public void setFriendService(FriendService friendService) {
+        this.friendService = friendService;
+    }
+
+    public void setGroupService(GroupService groupService) {
+        this.groupService = groupService;
+    }
 
     // 可以设置服务器地址
     public void setServerBaseUrl(String serverBaseUrl) {
@@ -204,20 +214,21 @@ public class ChatService {
                     long timestamp = jsonObject.has("timestamp") ?
                             jsonObject.get("timestamp").getAsLong() : System.currentTimeMillis();
 
-                    // 获取发送方用户名
-                    String senderName = "用户" + fromUserId;
+                    // 获取发送方真实用户名 - 修改这里
+                    String senderName = getFriendRealName(fromUserId);
 
                     broadcaster.broadcastPrivateMessage(
                             fromUserId,
                             toUserId,
                             content,
                             timestamp,
-                            senderName,
+                            senderName,  // 现在传递真实用户名
                             messageId
                     );
 
-                    System.out.println("[ChatService] 已处理并广播私聊消息: " + fromUserId + " -> " + toUserId);
+                    System.out.println("[ChatService] 已处理并广播私聊消息: " + senderName + " -> " + toUserId);
                 }
+
                 // 群聊消息
                 else if (MessageType.CHAT_GROUP_RECEIVE.equals(type)) {
                     Long messageId = jsonObject.has("id") ? jsonObject.get("id").getAsLong() : null;
@@ -227,18 +238,20 @@ public class ChatService {
                     long timestamp = jsonObject.has("timestamp") ?
                             jsonObject.get("timestamp").getAsLong() : System.currentTimeMillis();
 
-                    String groupName = "群聊" + groupId;
+                    // 获取群组真实名称和发送方真实用户名
+                    String groupName = getGroupRealName(groupId);
+                    String senderName = getFriendRealName(fromUserId);
 
                     broadcaster.broadcastGroupMessage(
                             groupId,
                             fromUserId,
                             content,
                             timestamp,
-                            groupName,
+                            groupName,  // 群组真实名称
                             messageId
                     );
 
-                    System.out.println("[ChatService] 已处理并广播群聊消息: 群组" + groupId);
+                    System.out.println("[ChatService] 已处理并广播群聊消息: " + groupName);
                 }
                 // 私聊文件接收消息
                 else if (MessageType.FILE_PRIVATE_RECEIVE.equals(type)) {
@@ -257,6 +270,37 @@ public class ChatService {
             System.err.println("处理消息失败: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    private String getFriendRealName(Long friendId) {
+        if (friendService != null) {
+            try {
+                String realName = friendService.getFriendNameById(friendId);
+                if (realName != null && !realName.trim().isEmpty()) {
+                    return realName;
+                }
+            } catch (Exception e) {
+                System.err.println("[ChatService] 获取好友名称失败: " + e.getMessage());
+            }
+        }
+
+        // 如果无法获取真实用户名，使用默认格式
+        return "用户" + friendId;
+    }
+    private String getGroupRealName(Long groupId) {
+        if (groupService != null) {
+            try {
+                String realName = groupService.getGroupNameById(groupId);
+                if (realName != null && !realName.trim().isEmpty()) {
+                    return realName;
+                }
+            } catch (Exception e) {
+                System.err.println("[ChatService] 获取群组名称失败: " + e.getMessage());
+            }
+        }
+
+        // 如果无法获取真实名称，使用默认格式
+        return "群聊" + groupId;
     }
 
     /**

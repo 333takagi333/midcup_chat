@@ -27,6 +27,10 @@ public class MessageBroadcaster {
     // 当前用户ID - 用于过滤自己发送的消息
     private Long currentUserId = null;
 
+    // 添加对FriendService和GroupService的引用
+    private FriendService friendService;
+    private GroupService groupService;
+
     private MessageBroadcaster() {}
 
     public static synchronized MessageBroadcaster getInstance() {
@@ -67,6 +71,22 @@ public class MessageBroadcaster {
      */
     public Long getCurrentUserId() {
         return currentUserId;
+    }
+
+    /**
+     * 设置FriendService
+     */
+    public void setFriendService(FriendService friendService) {
+        this.friendService = friendService;
+        System.out.println("[MessageBroadcaster] 设置FriendService");
+    }
+
+    /**
+     * 设置GroupService
+     */
+    public void setGroupService(GroupService groupService) {
+        this.groupService = groupService;
+        System.out.println("[MessageBroadcaster] 设置GroupService");
     }
 
     // ========== 注册/注销方法 ==========
@@ -133,7 +153,90 @@ public class MessageBroadcaster {
         System.out.println("[MessageBroadcaster] 移除聊天列表监听器，剩余: " + chatListListeners.size());
     }
 
-    // ========== 消息处理核心方法 ==========
+    // ========== 工具方法 ==========
+
+    /**
+     * 获取真实用户名
+     */
+    private String getRealUserName(Long userId) {
+        if (userId == null) {
+            return "未知用户";
+        }
+
+        // 首先检查是否是当前用户
+        if (currentUserId != null && currentUserId.equals(userId)) {
+            return "我";
+        }
+
+        // 尝试从FriendService获取真实用户名
+        if (friendService != null) {
+            try {
+                String realName = friendService.getFriendNameById(userId);
+                if (realName != null && !realName.trim().isEmpty()) {
+                    return realName;
+                }
+            } catch (Exception e) {
+                System.err.println("[MessageBroadcaster] 获取好友名称失败: " + e.getMessage());
+            }
+        }
+
+        return "用户" + userId;
+    }
+
+    /**
+     * 获取真实群组名称
+     */
+    private String getRealGroupName(Long groupId) {
+        if (groupId == null) {
+            return "未知群组";
+        }
+
+        // 尝试从GroupService获取真实群组名称
+        if (groupService != null) {
+            try {
+                String realName = groupService.getGroupNameById(groupId);
+                if (realName != null && !realName.trim().isEmpty()) {
+                    return realName;
+                }
+            } catch (Exception e) {
+                System.err.println("[MessageBroadcaster] 获取群组名称失败: " + e.getMessage());
+            }
+        }
+
+        return "群聊" + groupId;
+    }
+
+    /**
+     * 获取好友头像URL
+     */
+    private String getFriendAvatar(Long userId) {
+        if (userId == null || friendService == null) {
+            return null;
+        }
+
+        try {
+            return friendService.getFriendAvatarById(userId);
+        } catch (Exception e) {
+            System.err.println("[MessageBroadcaster] 获取好友头像失败: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 获取群组头像URL
+     */
+    private String getGroupAvatar(Long groupId) {
+        if (groupId == null || groupService == null) {
+            return null;
+        }
+
+        try {
+            return groupService.getGroupAvatarById(groupId);
+        } catch (Exception e) {
+            System.err.println("[MessageBroadcaster] 获取群组头像失败: " + e.getMessage());
+            return null;
+        }
+    }
 
     /**
      * 检查是否为重复消息
@@ -167,6 +270,8 @@ public class MessageBroadcaster {
         return false;
     }
 
+    // ========== 消息处理核心方法 ==========
+
     /**
      * 广播私聊消息（核心方法）- 显示最后一人发的消息
      */
@@ -195,7 +300,7 @@ public class MessageBroadcaster {
         String time = timeFormat.format(new Date(timestamp));
 
         // 生成显示消息
-        String senderDisplayName = isFromCurrentUser ? "我" : contactName;
+        String senderDisplayName = getRealUserName(fromUserId);  // 使用真实用户名
         String displayMessage = String.format("[%s] %s: %s", time, senderDisplayName, content);
 
         // 保存到会话管理器
@@ -217,28 +322,32 @@ public class MessageBroadcaster {
         // 确定聊天ID和显示名称
         String chatId;
         String chatDisplayName;
+        String chatAvatarUrl;
 
         if (isCurrentUserReceiver) {
             // 当前用户是接收方，聊天ID为对方ID，显示对方名称
             chatId = fromUserId.toString();
-            chatDisplayName = contactName;
+            chatDisplayName = getRealUserName(fromUserId);  // 使用真实用户名
+            chatAvatarUrl = getFriendAvatar(fromUserId);    // 获取头像
         } else if (isCurrentUserSender) {
-            // 当前用户是发送方，聊天ID为对方ID，显示"我"（表示这是与对方的对话）
+            // 当前用户是发送方，聊天ID为对方ID，显示对方名称
             chatId = toUserId.toString();
-            chatDisplayName = "我";
+            chatDisplayName = getRealUserName(toUserId);    // 使用真实用户名
+            chatAvatarUrl = getFriendAvatar(toUserId);      // 获取头像
         } else {
             // 当前用户不是参与者，不更新最近消息
             chatId = null;
             chatDisplayName = null;
+            chatAvatarUrl = null;
         }
 
         if (chatId != null) {
             recentService.updateRecentMessage(
                     chatId,
                     chatDisplayName,
-                    senderDisplayName, // 发送者名称：我 或 对方名称
+                    senderDisplayName, // 发送者名称：我 或 对方真实用户名
                     content,
-                    "", // 头像URL
+                    chatAvatarUrl,     // 使用真实头像
                     false, // 不是群聊
                     isFromCurrentUser // 是否当前用户发送
             );
@@ -252,10 +361,11 @@ public class MessageBroadcaster {
             for (ChatListUpdateListener listener : chatListListeners) {
                 try {
                     // 只有当当前用户是接收方时，才更新聊天列表
-                    // 发送方不应该在自己的聊天列表中看到自己发送的消息
                     if (isCurrentUserReceiver) {
-                        listener.onNewPrivateMessage(fromUserId, contactName, content, timestamp, messageId);
-                        System.out.println("[MessageBroadcaster] 通知接收方聊天列表: " + fromUserId + " -> " + toUserId);
+                        // 传递真实的用户名
+                        String realContactName = getRealUserName(fromUserId);
+                        listener.onNewPrivateMessage(fromUserId, realContactName, content, timestamp, messageId);
+                        System.out.println("[MessageBroadcaster] 通知接收方聊天列表: " + realContactName);
                     }
                 } catch (Exception e) {
                     System.err.println("[MessageBroadcaster] 通知聊天列表监听器失败: " + e.getMessage());
@@ -336,7 +446,7 @@ public class MessageBroadcaster {
         String time = timeFormat.format(new Date(timestamp));
 
         // 生成显示消息
-        String senderDisplayName = isFromCurrentUser ? "我" : "用户" + fromUserId;
+        String senderDisplayName = getRealUserName(fromUserId);  // 使用真实用户名
         String displayMessage = String.format("[%s] %s: %s", time, senderDisplayName, content);
 
         ChatSessionManager sessionManager = ChatSessionManager.getInstance();
@@ -347,26 +457,32 @@ public class MessageBroadcaster {
         // ========== 2. 更新最近消息服务（群聊） ==========
         RecentMessageService recentService = RecentMessageService.getInstance();
 
+        // 获取真实的群组名称和头像
+        String realGroupName = getRealGroupName(groupId);
+        String groupAvatarUrl = getGroupAvatar(groupId);
+
         // 更新群聊最近消息（显示最后一人发的消息）
         recentService.updateRecentMessage(
                 groupId.toString(),
-                groupName,
-                senderDisplayName, // 发送者名称：我 或 用户X
+                realGroupName,       // 使用真实群组名称
+                senderDisplayName,   // 发送者名称：我 或 用户真实名
                 content,
-                "", // 群聊头像
+                groupAvatarUrl,      // 使用真实群组头像
                 true, // 是群聊
                 isFromCurrentUser // 是否当前用户发送
         );
 
-        System.out.println("[MessageBroadcaster] 更新群聊最近消息: " + groupName +
+        System.out.println("[MessageBroadcaster] 更新群聊最近消息: " + realGroupName +
                 " (" + senderDisplayName + "发送)");
 
         // ========== 3. 通知聊天列表（群聊消息总是通知） ==========
         Platform.runLater(() -> {
             for (ChatListUpdateListener listener : chatListListeners) {
                 try {
-                    listener.onNewGroupMessage(groupId, groupName, content, timestamp, messageId);
-                    System.out.println("[MessageBroadcaster] 通知群聊列表: " + groupName);
+                    // 传递真实的群组名称
+                    String realName = getRealGroupName(groupId);
+                    listener.onNewGroupMessage(groupId, realName, content, timestamp, messageId);
+                    System.out.println("[MessageBroadcaster] 通知群聊列表: " + realName);
                 } catch (Exception e) {
                     System.err.println("[MessageBroadcaster] 通知聊天列表监听器失败: " + e.getMessage());
                 }
@@ -497,26 +613,32 @@ public class MessageBroadcaster {
             // 确定聊天ID和名称
             String chatId;
             String chatName;
+            String chatAvatarUrl;
+
             if (currentUserId != null && currentUserId.equals(targetId)) {
                 // 当前用户是接收方
                 chatId = senderId.toString();
-                chatName = "用户" + senderId;
+                chatName = getRealUserName(senderId);  // 使用真实用户名
+                chatAvatarUrl = getFriendAvatar(senderId);  // 获取头像
             } else if (isFromCurrentUser) {
                 // 当前用户是发送方
                 chatId = targetId.toString();
-                chatName = "我";
+                chatName = getRealUserName(targetId);  // 使用真实用户名
+                chatAvatarUrl = getFriendAvatar(targetId);  // 获取头像
             } else {
                 chatId = null;
                 chatName = null;
+                chatAvatarUrl = null;
             }
 
             if (chatId != null) {
+                String senderDisplayName = isFromCurrentUser ? "我" : getRealUserName(senderId);
                 recentService.updateRecentMessage(
                         chatId,
                         chatName,
-                        isFromCurrentUser ? "我" : "用户" + senderId,
+                        senderDisplayName,
                         "[" + fileType + "] " + fileName,
-                        "",
+                        chatAvatarUrl,
                         false,
                         isFromCurrentUser
                 );
@@ -527,15 +649,18 @@ public class MessageBroadcaster {
             RecentMessageService recentService = RecentMessageService.getInstance();
             boolean isFromCurrentUser = currentUserId != null && currentUserId.equals(senderId);
 
-            // 这里需要获取群聊名称，简化处理
-            String groupName = "群聊" + targetId;
+            // 获取真实的群组名称和头像
+            String groupName = getRealGroupName(targetId);
+            String groupAvatarUrl = getGroupAvatar(targetId);
+
+            String senderDisplayName = isFromCurrentUser ? "我" : getRealUserName(senderId);
 
             recentService.updateRecentMessage(
                     targetId.toString(),
                     groupName,
-                    isFromCurrentUser ? "我" : "用户" + senderId,
+                    senderDisplayName,
                     "[" + fileType + "] " + fileName,
-                    "",
+                    groupAvatarUrl,
                     true,
                     isFromCurrentUser
             );
@@ -561,8 +686,8 @@ public class MessageBroadcaster {
         StringBuilder stats = new StringBuilder();
         stats.append("MessageBroadcaster 统计:\n");
         stats.append("当前用户ID: ").append(currentUserId).append("\n");
-        stats.append("私聊监听器: ").append(privateListeners.size()).append(" 个键\n");
-        stats.append("群聊监听器: ").append(groupListeners.size()).append(" 个键\n");
+        stats.append("私聊监听器: ").append(privateListeners.size()).append(" 个\n");
+        stats.append("群聊监听器: ").append(groupListeners.size()).append(" 个\n");
         stats.append("聊天列表监听器: ").append(chatListListeners.size()).append(" 个\n");
         stats.append("消息缓存: ").append(lastProcessedMessages.size()).append(" 条\n");
 
