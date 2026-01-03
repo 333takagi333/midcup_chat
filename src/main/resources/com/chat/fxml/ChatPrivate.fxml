@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.chat.control.ChatPrivateControl" spacing="0"
+      styleClass="dialog-card"
+      stylesheets="@../css/main.css">
+
+    <!-- 标题栏 -->
+    <HBox styleClass="chat-header" alignment="CENTER_LEFT">
+
+        <ImageView fx:id="contactAvatar" fitWidth="36" fitHeight="36" preserveRatio="true"
+                   style="-fx-border-color: white; -fx-border-width: 2; -fx-border-radius: 18;" />
+
+        <VBox spacing="2" style="-fx-padding: 0 0 0 12;">
+            <Label fx:id="contactNameLabel" text="好友名称"
+                   styleClass="header-title" />
+        </VBox>
+
+        <Region HBox.hgrow="ALWAYS" />
+
+        <Button fx:id="profileButton" text="详情"
+                styleClass="header-button"
+                onAction="#showFriendProfile" />
+    </HBox>
+
+    <!-- 聊天区域 - 改为 ListView -->
+    <ListView fx:id="messageListView" VBox.vgrow="ALWAYS"
+              styleClass="list-view"
+              focusTraversable="false" />
+
+    <!-- 工具栏 -->
+    <HBox fx:id="historyButtonBox" styleClass="toolbar"
+          alignment="CENTER_LEFT">
+    </HBox>
+
+    <!-- 输入区域 -->
+    <HBox style="-fx-padding: 16 20; -fx-spacing: 12;" alignment="CENTER">
+
+        <TextField fx:id="messageInput" HBox.hgrow="ALWAYS" promptText="输入消息..."
+                   styleClass="chat-input" />
+
+        <!-- 上传文件按钮 -->
+        <Button fx:id="fileUploadButton" text="📎"
+                styleClass="icon-button"
+                onAction="#handleFileUpload" />
+
+        <!-- 发送按钮 -->
+        <Button fx:id="sendButton" text="发送" onAction="#sendMessage" defaultButton="true"
+                styleClass="primary-button" />
+    </HBox>
+</VBox>

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane fx:id="mainContainer" xmlns="http://javafx.com/javafx/11.0.1"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.chat.control.CreateGroupControl"
+            prefWidth="400" prefHeight="250"
+            stylesheets="@../css/main.css"
+            styleClass="dialog-card">
+
+    <padding>
+        <Insets top="20" right="20" bottom="20" left="20"/>
+    </padding>
+
+    <top>
+        <Label fx:id="titleLabel" text="创建群聊"
+               styleClass="section-title"
+               BorderPane.alignment="CENTER"/>
+    </top>
+
+    <center>
+        <VBox spacing="15" alignment="CENTER">
+            <VBox spacing="5">
+                <Label text="群聊名称:" styleClass="input-label"/>
+                <TextField fx:id="groupNameField"
+                           promptText="请输入群聊名称"
+                           styleClass="input-field"/>
+            </VBox>
+        </VBox>
+    </center>
+
+    <bottom>
+        <HBox spacing="20" alignment="CENTER_RIGHT">
+            <Button fx:id="cancelButton" text="取消"
+                    prefWidth="86" prefHeight="36"
+                    styleClass="ghost-button"/>
+            <Button fx:id="createButton" text="创建"
+                    prefWidth="86" prefHeight="36"
+                    styleClass="primary-button"/>
+        </HBox>
+    </bottom>
+</BorderPane>

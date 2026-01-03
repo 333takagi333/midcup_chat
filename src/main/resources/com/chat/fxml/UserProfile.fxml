@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox spacing="20" stylesheets="@../css/main.css" xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.chat.control.UserProfileControl">
+    <padding><Insets top="20" right="20" bottom="20" left="20"/></padding>
+
+    <!-- 头像区域 -->
+    <VBox spacing="15" alignment="CENTER">
+        <ImageView fx:id="avatarImage" fitWidth="100" fitHeight="100" />
+        <Button text="修改头像" onAction="#editAvatar" styleClass="primary-button"/>
+    </VBox>
+
+    <!-- 用户名和ID区域 -->
+    <VBox spacing="10">
+        <!-- 用户名行 -->
+        <GridPane hgap="10" vgap="10">
+            <columnConstraints>
+                <ColumnConstraints prefWidth="80" />
+                <ColumnConstraints prefWidth="200" />
+            </columnConstraints>
+            <Label text="用户名：" GridPane.rowIndex="0" GridPane.columnIndex="0" styleClass="label-strong" />
+            <Label fx:id="usernameLabel" GridPane.rowIndex="0" GridPane.columnIndex="1" styleClass="label-strong" />
+            <TextField fx:id="usernameField" visible="false" GridPane.rowIndex="0" GridPane.columnIndex="1"
+                       styleClass="input-field" />
+        </GridPane>
+        <!-- ID行 -->
+        <GridPane hgap="10" vgap="10">
+            <columnConstraints>
+                <ColumnConstraints prefWidth="80" />
+                <ColumnConstraints prefWidth="200" />
+            </columnConstraints>
+            <Label text="ID：" GridPane.rowIndex="0" GridPane.columnIndex="0" styleClass="label-muted" />
+            <Label fx:id="userIdLabel" GridPane.rowIndex="0" GridPane.columnIndex="1" styleClass="label-muted" />
+        </GridPane>
+    </VBox>
+
+    <!-- 基本信息区域 -->
+    <VBox spacing="10">
+        <Label text="基本信息" styleClass="section-title" />
+
+        <GridPane hgap="10" vgap="10">
+            <columnConstraints>
+                <ColumnConstraints prefWidth="80" />
+                <ColumnConstraints prefWidth="200" />
+            </columnConstraints>
+
+            <rowConstraints>
+                <RowConstraints prefHeight="30" />
+                <RowConstraints prefHeight="30" />
+                <RowConstraints prefHeight="30" />
+                <RowConstraints prefHeight="30" />
+            </rowConstraints>
+
+            <!-- 性别 -->
+            <Label text="性别:" GridPane.rowIndex="0" GridPane.columnIndex="0" styleClass="label-strong" />
+            <Label fx:id="genderLabel" GridPane.rowIndex="0" GridPane.columnIndex="1" styleClass="value-label" />
+            <ComboBox fx:id="genderComboBox" visible="false" GridPane.rowIndex="0" GridPane.columnIndex="1" />
+
+            <!-- 生日 -->
+            <Label text="生日:" GridPane.rowIndex="1" GridPane.columnIndex="0" styleClass="label-strong" />
+            <Label fx:id="birthdayLabel" GridPane.rowIndex="1" GridPane.columnIndex="1" styleClass="value-label" />
+            <TextField fx:id="birthdayField" visible="false" GridPane.rowIndex="1" GridPane.columnIndex="1" styleClass="input-field" />
+
+            <!-- 电话 -->
+            <Label text="电话:" GridPane.rowIndex="2" GridPane.columnIndex="0" styleClass="label-strong" />
+            <Label fx:id="phoneLabel" GridPane.rowIndex="2" GridPane.columnIndex="1" styleClass="value-label" />
+            <TextField fx:id="phoneField" visible="false" GridPane.rowIndex="2" GridPane.columnIndex="1" styleClass="input-field" />
+
+        </GridPane>
+    </VBox>
+
+    <!-- 操作按钮区域 -->
+    <HBox spacing="10" alignment="CENTER">
+        <Button fx:id="saveButton" text="保存资料" onAction="#saveProfile" visible="false"
+                styleClass="success-button" />
+        <Button fx:id="editButton" text="编辑资料" onAction="#editProfile"
+                styleClass="primary-button" />
+        <Button fx:id="cancelButton" text="取消编辑" onAction="#cancelEdit" visible="false"
+                styleClass="muted-button" />
+    </HBox>
+</VBox>

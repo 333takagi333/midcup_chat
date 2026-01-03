@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.text.Font?>
+<?import javafx.scene.control.ScrollPane?>
+
+<VBox xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.chat.control.GroupDetailsControl" spacing="15"
+      style="-fx-padding: 20; -fx-background-color: #ffffff;" fx:id="mainContainer"
+      minWidth="500" minHeight="650"
+      stylesheets="@../css/main.css">
+
+    <!-- 使用ScrollPane包装所有内容 -->
+    <ScrollPane fitToWidth="true" style="-fx-background: transparent; -fx-background-color: transparent;">
+        <VBox spacing="15" style="-fx-padding: 0 5 0 0;"> <!-- 右边留出滚动条空间 -->
+
+            <!-- 群聊信息头部 -->
+            <HBox alignment="CENTER_LEFT" spacing="20">
+                <ImageView fx:id="groupAvatar" fitWidth="80" fitHeight="80" preserveRatio="true"
+                           style="-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 10, 0, 0, 0);" />
+
+                <VBox spacing="5">
+                    <Label fx:id="groupNameLabel" style="-fx-font-size: 24px; -fx-font-weight: bold;" />
+                    <Label fx:id="groupIdLabel" style="-fx-font-size: 14px; -fx-text-fill: #7f8c8d;" />
+                    <HBox spacing="10">
+                        <Label fx:id="memberCountLabel" style="-fx-font-size: 12px; -fx-text-fill: #7f8c8d;" />
+                    </HBox>
+                </VBox>
+            </HBox>
+
+            <!-- 分隔线 -->
+            <Separator />
+
+            <!-- 群成员 -->
+            <VBox spacing="8">
+                <HBox alignment="CENTER_LEFT" spacing="10">
+                    <Label text="群成员" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;" />
+                    <Button fx:id="addMemberButton" text="+ 添加成员"
+                            style="-fx-background-color: #2ecc71; -fx-text-fill: white; -fx-padding: 3 10;" />
+                </HBox>
+                <ListView fx:id="memberListView" prefHeight="200"
+                          style="-fx-background-color: #f8f9fa; -fx-border-color: #ddd; -fx-border-radius: 5;" />
+            </VBox>
+
+            <!-- 群文件 -->
+            <VBox spacing="8">
+                <HBox alignment="CENTER_LEFT" spacing="10">
+                    <Label text="群文件" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;" />
+                    <Button fx:id="downloadButton" text="下载"
+                            style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-padding: 3 10;" />
+                </HBox>
+                <ListView fx:id="fileListView" prefHeight="150"
+                          style="-fx-background-color: #f8f9fa; -fx-border-color: #ddd; -fx-border-radius: 5;" />
+            </VBox>
+
+            <!-- 分隔线 -->
+            <Separator />
+
+            <!-- 操作按钮区域 -->
+            <HBox spacing="15" alignment="CENTER">
+                <Region HBox.hgrow="ALWAYS" />
+
+                <!-- 退出群聊按钮 -->
+                <Button fx:id="exitGroupButton" text="退出群聊"
+                        style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-weight: bold;
+                             -fx-font-size: 14px; -fx-padding: 8 25;" />
+            </HBox>
+
+            <!-- 底部提示 -->
+            <Label text="注：退出群聊后将不再接收群消息，且无法撤销操作"
+                   style="-fx-font-size: 12px; -fx-text-fill: #e74c3c; -fx-alignment: CENTER;" />
+
+        </VBox>
+    </ScrollPane>
+</VBox>

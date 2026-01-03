@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CopilotDiffPersistence">
+    <option name="pendingDiffs">
+      <map>
+        <entry key="$PROJECT_DIR$/src/main/java/com/chat/protocol/Request.java">
+          <value>
+            <PendingDiffInfo>
+              <option name="filePath" value="$PROJECT_DIR$/src/main/java/com/chat/protocol/Request.java" />
+              <option name="updatedContent" value="package com.chat.protocol;&#10;&#10;public class Request {&#10;    private String type;&#10;    private Object payload;&#10;&#10;    public Request(String type, Object payload) {&#10;        this.type = type;&#10;        this.payload = payload;&#10;    }&#10;&#10;    public String getType() {&#10;        return type;&#10;    }&#10;&#10;    public void setType(String type) {&#10;        this.type = type;&#10;    }&#10;&#10;    public Object getPayload() {&#10;        return payload;&#10;    }&#10;&#10;    public void setPayload(Object payload) {&#10;        this.payload = payload;&#10;    }&#10;}&#10;" />
+            </PendingDiffInfo>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+</project>

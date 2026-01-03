@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.chat.control.ChatGroupControl" spacing="0"
+      styleClass="dialog-card"
+      stylesheets="@../css/main.css">
+
+    <!-- 标题栏 -->
+    <HBox styleClass="chat-header" spacing="10" alignment="CENTER_LEFT">
+        <ImageView fx:id="groupAvatar" fitWidth="40" fitHeight="40" preserveRatio="true" />
+
+        <VBox spacing="2">
+            <Label fx:id="groupNameLabel" styleClass="header-title" />
+        </VBox>
+
+        <Region HBox.hgrow="ALWAYS" />
+
+        <!-- 详情按钮 -->
+        <Button fx:id="groupDetailButton" text="详情" styleClass="header-button"
+                onAction="#showGroupDetails" />
+    </HBox>
+
+    <!-- 聊天区域 - 改为 ListView -->
+    <ListView fx:id="messageListView" VBox.vgrow="ALWAYS"
+              styleClass="list-view" />
+
+    <!-- 历史消息按钮区域 -->
+    <HBox fx:id="historyButtonBox" alignment="CENTER" spacing="10" styleClass="toolbar">
+        <!-- 按钮将通过Controller动态添加 -->
+    </HBox>
+
+    <!-- 输入区域 -->
+    <HBox spacing="10" style="-fx-padding: 14 16;">
+        <TextField fx:id="messageInput" HBox.hgrow="ALWAYS" promptText="输入群消息..."
+                   styleClass="chat-input" />
+
+        <!-- 上传文件按钮 -->
+        <Button fx:id="fileUploadButton" text="📎"
+                styleClass="icon-button"
+                onAction="#handleFileUpload" />
+
+        <!-- 发送按钮 -->
+        <Button fx:id="sendButton" text="发送" onAction="#sendMessage" defaultButton="true"
+                styleClass="primary-button" />
+    </HBox>
+</VBox>

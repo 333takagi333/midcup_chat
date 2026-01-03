@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.PasswordField?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox alignment="CENTER" spacing="20.0" stylesheets="@../css/main.css" xmlns="http://javafx.com/javafx/8.0.171" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.chat.control.RegisterControl">
+    <padding>
+        <Insets bottom="40.0" left="40.0" right="40.0" top="40.0" />
+    </padding>
+
+    <children>
+        <Label text="注册账号" styleClass="app-title"/>
+
+        <VBox alignment="CENTER_LEFT" spacing="5">
+            <Label text="用户名" styleClass="input-label"/>
+            <TextField fx:id="usernameField" promptText="请输入用户名" styleClass="input-field"/>
+        </VBox>
+
+        <VBox alignment="CENTER_LEFT" spacing="5">
+            <Label text="密码" styleClass="input-label"/>
+            <PasswordField fx:id="passwordField" promptText="请输入密码" styleClass="input-field" />
+        </VBox>
+
+        <VBox alignment="CENTER_LEFT" spacing="5">
+            <Label text="确认密码" styleClass="input-label"/>
+            <PasswordField fx:id="confirmPasswordField" promptText="请再次输入密码" styleClass="input-field"/>
+        </VBox>
+
+        <HBox spacing="15" alignment="CENTER">
+            <children>
+                <Button fx:id="registerButton" text="注册" onAction="#register" styleClass="primary-button" />
+
+                <Button fx:id="backButton" text="返回登录" onAction="#backToLogin"
+                        styleClass="ghost-button"/>
+            </children>
+        </HBox>
+
+        <Label fx:id="statusLabel" text="" styleClass="label-muted"/>
+    </children>
+</VBox>

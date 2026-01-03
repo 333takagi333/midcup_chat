@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.chat.control.FriendProfileControl" spacing="15"
+      style="-fx-padding: 20; -fx-background-color: #ffffff;" fx:id="mainContainer"
+      stylesheets="@../css/main.css">
+
+    <!-- 头像区域 -->
+    <HBox alignment="CENTER" spacing="20">
+        <ImageView fx:id="avatarImage" fitWidth="100" fitHeight="100" preserveRatio="true"
+                   style="-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 10, 0, 0, 0);" />
+
+        <VBox spacing="5">
+            <Label fx:id="usernameLabel" style="-fx-font-size: 24px; -fx-font-weight: bold;" />
+            <Label fx:id="userIdLabel" style="-fx-font-size: 14px; -fx-text-fill: #7f8c8d;" />
+        </VBox>
+    </HBox>
+
+    <!-- 分隔线 -->
+    <Separator />
+
+    <!-- 基本信息 -->
+    <VBox spacing="10">
+        <Label text="基本信息" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;" />
+
+        <GridPane vgap="10" hgap="15">
+            <columnConstraints>
+                <ColumnConstraints prefWidth="80" />
+                <ColumnConstraints prefWidth="200" />
+            </columnConstraints>
+
+            <!-- 性别 -->
+            <Label text="性别:" style="-fx-text-fill: #34495e;" GridPane.rowIndex="0" GridPane.columnIndex="0" />
+            <Label fx:id="genderLabel" style="-fx-text-fill: #2c3e50;" GridPane.rowIndex="0" GridPane.columnIndex="1" />
+
+            <!-- 生日 -->
+            <Label text="生日:" style="-fx-text-fill: #34495e;" GridPane.rowIndex="1" GridPane.columnIndex="0" />
+            <Label fx:id="birthdayLabel" style="-fx-text-fill: #2c3e50;" GridPane.rowIndex="1" GridPane.columnIndex="1" />
+
+            <!-- 电话 -->
+            <Label text="电话:" style="-fx-text-fill: #34495e;" GridPane.rowIndex="2" GridPane.columnIndex="0" />
+            <Label fx:id="phoneLabel" style="-fx-text-fill: #2c3e50;" GridPane.rowIndex="2" GridPane.columnIndex="1" />
+
+        </GridPane>
+    </VBox>
+
+    <!-- 分隔线 -->
+    <Separator />
+
+    <!-- 操作按钮区域 -->
+    <HBox spacing="10" alignment="CENTER">
+        <!-- 删除好友按钮居中显示 -->
+        <Region HBox.hgrow="ALWAYS" />
+
+        <Button fx:id="deleteFriendButton" text="删除好友"
+                style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-weight: bold;
+                       -fx-padding: 8 30; -fx-font-size: 14px;" />
+
+        <Region HBox.hgrow="ALWAYS" />
+    </HBox>
+
+    <!-- 底部提示 -->
+    <Label text="注：删除好友将清除所有聊天记录"
+           style="-fx-font-size: 12px; -fx-text-fill: #e74c3c; -fx-alignment: CENTER;" />
+</VBox>
