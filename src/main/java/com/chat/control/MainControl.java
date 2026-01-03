@@ -50,6 +50,8 @@ public class MainControl implements Initializable {
     private final WindowManagementService windowService = new WindowManagementService();
     private final ChatService chatService = new ChatService();
     private UserProfileService userProfileService;
+    private final FriendService friendService = new FriendService();
+    private final GroupService groupService = new GroupService();
 
     // 窗口键常量
     private static final String USER_PROFILE_WINDOW_KEY = "user_profile";
@@ -63,6 +65,10 @@ public class MainControl implements Initializable {
         setupUI();
         setupDataBinding();
         setupEventHandlers();
+
+        // 设置FriendService和GroupService到ChatStateService（新增）
+        stateService.setFriendService(friendService);
+        stateService.setGroupService(groupService);
 
         Platform.runLater(() -> {
             // 设置当前用户ID到MessageBroadcaster
