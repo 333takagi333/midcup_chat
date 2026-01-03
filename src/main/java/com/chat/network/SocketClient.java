@@ -16,7 +16,7 @@ import com.chat.protocol.*;
  * 简单的基于 TCP 的客户端，用于向服务器发送请求并获取响应。
  */
 public class SocketClient {
-    private static final String SERVER_ADDRESS = "localhost";
+    private static final String SERVER_ADDRESS = "112.124.108.184";
     private static final int SERVER_PORT = 12345;
     private static final int TIMEOUT_MS = 5000; // 5 seconds
 
